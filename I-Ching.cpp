@@ -1,5 +1,6 @@
 
-// Check saave count at start wether to enabled the load button
+// 
+//
 //
 
 #pragma comment (linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -455,8 +456,7 @@ VOID create_main(HWND hwnd_main) {
     SetFocus(g.hwnd[HWND_QUERY]);
 }
 
-// Handles the painting of the main window. It fills the background with a solid color, draws the hexagram and changing lines rectangles, and displays the names of the hexagram 
-// and changing lines if they are available.
+// Handles the painting of the main window. It fills the background bitmap, draws the hexagram and changing lines rectangles, and displays the name of the hexagram 
 //==================================================================================================================================================================================
 VOID paint_main(HWND hwnd) {
     PAINTSTRUCT ps;
