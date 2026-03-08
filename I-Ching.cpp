@@ -1,23 +1,23 @@
 
-//
-// I Ching, also known as the Book of Changes, is an ancient Chinese divination text that has been used for centuries to provide guidance and insight into various aspects of life. 
-// It consists of 64 hexagrams, each made up of six lines that can be either broken (yin) or unbroken (yang). The hexagrams are used to represent different situations and their 
-// potential outcomes, and they are often consulted for decision-making and understanding the flow of events.
-// 
-// This program is a modern implementation of an I Ching divination tool that allows users to cast hexagrams using a random number generator based on the RDSEED instruction, 
-// which provides high-quality random numbers from the randomness of thermal noise.
-//
-// The program also includes features for saving and loading hexagram readings, as well as displaying the associated text and interpretations for each hexagram and its changing lines. 
-// 
-// Gottfried Wilhelm Leibniz, the co-inventor of calculus with Newton, was inspired by the I Ching, particularly its binary system, which influenced his development of modern binary 
-// code used in computing. He saw connections between the I Ching's hexagrams and the binary sequence, linking ancient Chinese philosophy to contemporary mathematics and technology.
-// 
-// See:
-// https://therealsamizdat.com/2016/07/15/eco-the-i-ching-and-the-binary-calculus/
-// 
-// In particular, focus on figure 14.1 and the associated discussion. Binary sequnces from thousands of years ago!
-// 
-//
+/*
+
+I Ching, also known as the Book of Changes, is an ancient Chinese divination text that has been used for circa 3 millennia to provide guidance and insight into various aspects of life. 
+It consists of 64 hexagrams, each made up of six lines that can be either broken (yin) or unbroken (yang). The hexagrams are used to represent different situations and their 
+potential outcomes, and they are often consulted for decision-making and understanding the flow of events.
+
+This program is a modern implementation of an I Ching divination tool that allows users to cast hexagrams using a hardware random number generator, the RDSEED CPU instruction. 
+Providing high-quality random numbers from Johnson-Nyquist thermal noise.
+
+The program also includes features for saving and loading hexagram readings, as well as displaying the associated text and interpretations for each hexagram and its changing lines.
+
+Gottfried Wilhelm Leibniz, the co-inventor of calculus with Newton, was inspired by the I Ching, particularly its binary system, which influenced his development of modern binary 
+code used in computing. He saw connections between the I Ching's hexagrams and the binary sequence, linking ancient Chinese philosophy to contemporary mathematics and technology.
+
+https://therealsamizdat.com/2016/07/15/eco-the-i-ching-and-the-binary-calculus/
+
+In particular, see Figure 14.1 and the associated discussion. The binary sequence from thousands of years ago! 
+
+*/
 
 #pragma comment (linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x64' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
