@@ -44,8 +44,11 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Release\I-Ching.ini">
+    <MASM Include="RDSEED.asm">
       <Filter>Source Files</Filter>
-    </None>
+    </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Build\I-Ching.ini" />
   </ItemGroup>
 </Project>

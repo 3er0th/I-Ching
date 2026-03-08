@@ -1,9 +1,25 @@
 
+//
+// I Ching, also known as the Book of Changes, is an ancient Chinese divination text that has been used for centuries to provide guidance and insight into various aspects of life. 
+// It consists of 64 hexagrams, each made up of six lines that can be either broken (yin) or unbroken (yang). The hexagrams are used to represent different situations and their 
+// potential outcomes, and they are often consulted for decision-making and understanding the flow of events.
+// 
+// This program is a modern implementation of an I Ching divination tool that allows users to cast hexagrams using a random number generator based on the RDSEED instruction, 
+// which provides high-quality random numbers from the randomness of thermal noise.
+//
+// The program also includes features for saving and loading hexagram readings, as well as displaying the associated text and interpretations for each hexagram and its changing lines. 
+// 
+// Gottfried Wilhelm Leibniz, the co-inventor of calculus with Newton, was inspired by the I Ching, particularly its binary system, which influenced his development of modern binary 
+// code used in computing. He saw connections between the I Ching's hexagrams and the binary sequence, linking ancient Chinese philosophy to contemporary mathematics and technology.
+// 
+// See:
+// https://therealsamizdat.com/2016/07/15/eco-the-i-ching-and-the-binary-calculus/
+// 
+// In particular, focus on figure 14.1 and the associated discussion. Binary sequnces from thousands of years ago!
 // 
 //
-//
 
-#pragma comment (linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#pragma comment (linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x64' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #define _NO_CRT_STDIO_INLINE
 
@@ -199,6 +215,10 @@ typedef struct {
 
 Global_t g;
 
+// I-Ching.asm
+EXTERN_C BOOL    __stdcall rdseed_support(VOID);
+EXTERN_C DWORD   __stdcall get_seed      (VOID);
+
 VOID             cmd_back      (VOID);
 VOID             cmd_cast      (VOID);
 VOID             cmd_load      (VOID);
@@ -210,7 +230,6 @@ VOID             calc_hex_full (VOID);
 VOID             calc_hex      (DWORD seed, DWORD& hex, DWORD& chg);
 VOID             get_text      (VOID);
 BOOL             is_file       (PCWSTR path);
-BOOL             is_rdseed     (VOID);
 VOID             notify_load   (HWND hwnd, LPARAM lParam);
 VOID             paint_main    (HWND hwnd);
 INT              selected_item (VOID);
@@ -228,7 +247,7 @@ LRESULT CALLBACK wndproc_load  (HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 // The entry point of the application. It checks for RDSEED support, loads resources, initializes the main window, and starts the message loop to handle user interactions.
 //=================================================================================================================================================================================
 EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
-    if (!is_rdseed()) {
+    if (!rdseed_support()) {
         MessageBoxW(0, L"This computer's processor lacks support for the RDSEED instruction that's used by the casting technique.\n\nMinimum requirements:\n    INTEL Ivy Bridge or newer\n    AMD  Ryzen or newer", L"I-Ching", MB_ICONSTOP);
         ExitProcess(1);
     }
@@ -479,7 +498,7 @@ VOID paint_main(HWND hwnd) {
 
         p = (g.opt_num == HWND_OPT_CHANGING) ? g.chg_buf : g.hex_buf;
         
-        TextOutW(hdc, g.rect[RECT_NAME].left, g.rect[RECT_NAME].top, p, wcslen(p));
+        TextOutW(hdc, g.rect[RECT_NAME].left, g.rect[RECT_NAME].top, p, (int)wcslen(p));
     }
         
     DeleteObject(hBrush);
@@ -623,7 +642,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             PWSTR p;
 
             g.opt_prev = g.opt_num;
-            g.opt_num = uIdSubclass;
+            g.opt_num  = (BYTE)uIdSubclass;
 
             switch (uIdSubclass) {
             case HWND_OPT_HEXAGRAM: 
@@ -694,7 +713,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
                 if (p) {
                     SelectObject(hdc, g.font[FONT_NAME]);
-                    TextOutW(hdc, 24, 0, p, wcslen(p));
+                    TextOutW(hdc, 24, 0, p, (int)wcslen(p));
                 }
             }
 
@@ -736,16 +755,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 VOID cmd_cast(VOID) {
     BOOL saveable;
 
-    _asm {
-        _empty_the_entropy_buffer: 
-            rdseed eax
-            jc     _empty_the_entropy_buffer
-
-        _get_a_freshly_minted_seed:  
-            rdseed eax
-            jnc    _get_a_freshly_minted_seed
-            mov    g.seed, eax
-    }
+    g.seed = get_seed();
 
     GetSystemTimeAsFileTime(&g.ft);
 
@@ -760,7 +770,6 @@ VOID cmd_cast(VOID) {
         g.chg_num  = bin_to_wen[g.hex_bits ^ g.chg_bits];
         saveable   = FALSE;
     } else {
-        g.seed &= 0b111111111111111111;
         calc_hex_full();
         saveable = TRUE;
     }
@@ -953,6 +962,8 @@ VOID create_load(HWND hwnd_load) {
         WCHAR key[10];
         WCHAR buf[400];
 
+        memset(buf, 0, sizeof(buf));
+
         swprintf_s(key, _countof(key), L"%d", i);
 
         if (GetPrivateProfileStringW(L"Saved", key, 0, buf, _countof(buf), g.ini_file)) {
@@ -1034,7 +1045,7 @@ VOID cmd_load_item(VOID) {
     lvi.mask       = LVIF_PARAM;
 
     if (ListView_GetItem(g.hwnd[HWND_LOAD_LIST], &lvi) == TRUE) {
-        g.seed = lvi.lParam;
+        g.seed = (DWORD)lvi.lParam;
     
         lvi.pszText    = g.query;
         lvi.cchTextMax = _countof(g.query);
@@ -1176,7 +1187,7 @@ VOID get_text(VOID) {
         g.hex_text = p;
     
         // convert any "$$" sequences in the text to double line breaks for proper formatting in the rich text control, since the INI file cannot contain actual line break characters
-        while (p = StrStrW(p, L"$$")) {
+        while (p = wcsstr(p, L"$$")) {
             p[0] = L'\r';
             p[1] = L'\r';
         }
@@ -1194,7 +1205,7 @@ VOID get_text(VOID) {
                 g.chg_text = p;
 
                 // convert any "$$" sequences in the text to double line breaks for proper formatting in the rich text control, since the INI file cannot contain actual line break characters
-                while (p = StrStrW(p, L"$$")) {
+                while (p = wcsstr(p, L"$$")) {
                     p[0] = L'\r';
                     p[1] = L'\r';
                 }
@@ -1211,6 +1222,7 @@ BOOL is_file(PCWSTR path) {
     return (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
+/*
 // Check for RDSEED instruction support at runtime using the CPUID instruction.
 //======================================================================================================================================================================================
 __declspec(naked) BOOL is_rdseed(VOID) {
@@ -1222,5 +1234,5 @@ __declspec(naked) BOOL is_rdseed(VOID) {
         and     eax, 1
         ret
     }
-}
+} */
 #pragma endregion

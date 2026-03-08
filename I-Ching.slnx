@@ -1,7 +1,7 @@
 <Solution>
   <Configurations>
     <BuildType Name="Release" />
-    <Platform Name="x86" />
+    <Platform Name="x64" />
   </Configurations>
   <Project Path="I-Ching.vcxproj" Id="1158665c-2079-45b0-a39c-92b4b9b5ab28" />
 </Solution>
