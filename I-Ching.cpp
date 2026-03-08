@@ -19,7 +19,7 @@ In particular, see Figure 14.1 and the associated discussion. The binary sequenc
 
 */
 
-#pragma comment (linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #define _NO_CRT_STDIO_INLINE
 
@@ -410,10 +410,9 @@ VOID create_main(HWND hwnd_main) {
     SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_LOAD, 3);
 
     g.hwnd[HWND_QUERY]    = hwnd = CreateWindowExW(0, L"EDIT",   0, WS_CHILD|WS_BORDER|WS_VISIBLE|ES_NOHIDESEL, UI_PAD, EDIT_Y, EDIT_CX, EDIT_CY,  hwnd_main,  (HMENU)HWND_QUERY, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_edit, HWND_QUERY, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
-    SendMessageW(hwnd, EM_SETREADONLY, FALSE, 0);
-    SendMessageW(hwnd, EM_SETCUEBANNER, 1, (LPARAM)L"Enter a query or a hexagram number from 1 to 64");
+    SendMessageW(hwnd, EM_SETCUEBANNER, TRUE, (LPARAM)L"Enter a query or a hexagram number from 1 to 64"); // isn't working on x64 for some reason... answers on a postcard
+    SetWindowSubclass(hwnd, &subproc_edit, HWND_QUERY, 0);
 
     g.hwnd[HWND_OPT_HEXAGRAM]  = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_NAME_X, HEX_NAME_Y, NAME_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEXAGRAM,  0, 0);
     SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEXAGRAM,  0x010000);    
