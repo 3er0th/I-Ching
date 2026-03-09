@@ -391,8 +391,8 @@ VOID create_main(HWND hwnd_main) {
 
     SetWindowPos(hwnd_main, 0, x, y, cx, cy, SWP_NOZORDER);
 
-    g.font[FONT_NAME] = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Segoe UI");
-    g.font[FONT_TEXT] = CreateFontW(-12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
+    g.font[FONT_NAME] = CreateFontW(-14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Segoe UI");
+    g.font[FONT_TEXT] = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
 
     g.btn_enabled[CMD_CAST] = 1;
     g.btn_enabled[CMD_LOAD] = 1;
@@ -411,7 +411,7 @@ VOID create_main(HWND hwnd_main) {
 
     g.hwnd[HWND_QUERY]    = hwnd = CreateWindowExW(0, L"EDIT",   0, WS_CHILD|WS_BORDER|WS_VISIBLE|ES_NOHIDESEL, UI_PAD, EDIT_Y, EDIT_CX, EDIT_CY,  hwnd_main,  (HMENU)HWND_QUERY, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
-    SendMessageW(hwnd, EM_SETCUEBANNER, TRUE, (LPARAM)L"Enter a query or a hexagram number from 1 to 64");
+    SendMessageW(hwnd, EM_SETCUEBANNER, TRUE, (LPARAM)L"Enter a query or hexagram number from 1 to 64");
     SetWindowSubclass(hwnd, &subproc_edit, HWND_QUERY, 0);
 
     g.hwnd[HWND_OPT_HEXAGRAM]  = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_NAME_X, HEX_NAME_Y, NAME_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEXAGRAM,  0, 0);
