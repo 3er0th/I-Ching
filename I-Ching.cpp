@@ -1,21 +1,23 @@
 
 /*
 
-I Ching, also known as the Book of Changes, is an ancient Chinese divination text that has been used for circa 3 millennia to provide guidance and insight into various aspects of life. 
+README.md
+
+I Ching, also known as the Book of Changes, is an ancient Chinese divination text that has been used for ~3 millennia to provide guidance and insight into various aspects of life. 
 It consists of 64 hexagrams, each made up of six lines that can be either broken (yin) or unbroken (yang). The hexagrams are used to represent different situations and their 
 potential outcomes, and they are often consulted for decision-making and understanding the flow of events.
 
-This program is a modern implementation of an I Ching divination tool that allows users to cast hexagrams using a hardware-based random number generator, the RDSEED CPU instruction. 
-Providing high-quality random numbers from Johnson-Nyquist thermal noise.
+This program is an implementation of the I Ching that employs hardware-based entropy sourced from Johnson-Nyquist thermal noise to generate high-quality random numbers.
 
-The program also includes features for saving and loading saved readings, as well as displaying a modernised text for each hexagram and its changing lines.
+See the RDSEED instruction mentioned in this Wikipedia article for more information.
+https://en.wikipedia.org/wiki/RDRAND
 
 Leibniz, the co-inventor of calculus with Newton, was inspired by the I Ching, particularly its binary system, which influenced the development of modern binary 
 code used in computing. He saw connections between the I Ching's hexagrams and binary representation, linking ancient Chinese philosophy to contemporary mathematics and technology.
 
 https://therealsamizdat.com/2016/07/15/eco-the-i-ching-and-the-binary-calculus/
 
-In particular, see Figure 14.1 and the associated discussion. The binary sequence from thousands of years ago!
+In particular, see Figure 14.1 and the associated discussion. Binary encoding from thousands of years ago.
 
 */
 
@@ -37,7 +39,7 @@ In particular, see Figure 14.1 and the associated discussion. The binary sequenc
 #define RECT_CY(rc)     ((rc).bottom - (rc).top)
 
 #define MAIN_CLIENT_CX	(600)
-#define MAIN_CLIENT_CY  (800)
+#define MAIN_CLIENT_CY  (918)
 
 #define UI_PAD          (12)
 
@@ -118,7 +120,7 @@ enum e_hwnd {
     HWND_OPT_CHG_LINE1,
     HWND_LOAD,
     HWND_LOAD_LIST,
-    HWND_LOAD_OK,
+    HWND_LOAD_OPEN,
     HWND_LOAD_CANCEL,
     HWND_COUNT,
 };
@@ -137,11 +139,10 @@ enum e_font {
 };
 
 enum e_icon {
-    ICON_MAIN,
-    ICON_CMD_CAST_ON,
-    ICON_CMD_BACK_ON,
-    ICON_CMD_SAVE_ON,
-    ICON_CMD_LOAD_ON,
+    ICON_CMD_CAST_SET,
+    ICON_CMD_BACK_SET,
+    ICON_CMD_SAVE_SET,
+    ICON_CMD_LOAD_SET,
     ICON_CMD_CAST_OFF,
     ICON_CMD_BACK_OFF,
     ICON_CMD_SAVE_OFF,
@@ -181,44 +182,43 @@ enum e_btn_state {
 
 #pragma region global data and function declarations
 
-const BYTE       bin_to_wen[64] = { 2, 24, 7, 19, 15, 36, 46, 11, 16, 51, 40, 54, 62, 55, 32, 34, 8, 3, 29, 60, 39, 63, 48, 5, 45, 17, 47, 58, 31, 49, 28, 43, 23, 27, 4, 41, 52, 22, 18, 26, 35, 21, 64, 38, 56, 30, 50, 14, 20, 42, 59, 61, 53, 37, 57, 9, 12, 25, 6, 10, 33, 13, 44, 1 };
-const BITMAPINFO main_bmpInfo   = { sizeof(BITMAPINFO), MAIN_CLIENT_CX, -MAIN_CLIENT_CY, 1, 24, BI_RGB };
+const BYTE bin_to_wen[64] = { 2, 24, 7, 19, 15, 36, 46, 11, 16, 51, 40, 54, 62, 55, 32, 34, 8, 3, 29, 60, 39, 63, 48, 5, 45, 17, 47, 58, 31, 49, 28, 43, 23, 27, 4, 41, 52, 22, 18, 26, 35, 21, 64, 38, 56, 30, 50, 14, 20, 42, 59, 61, 53, 37, 57, 9, 12, 25, 6, 10, 33, 13, 44, 1 };
 
 typedef struct {
-    HINSTANCE hInstance;
-    HWND      hwnd[HWND_COUNT];
-    HFONT     font[FONT_COUNT];
-    RECT      rect[RECT_COUNT];
-    HICON     icon[ICON_COUNT];
-    HCURSOR   hCurHelp;
-    PBYTE     pPixels;
-    FILETIME  ft;
-    DWORD     seed;
-    BOOL      close;
-    WCHAR     ini_file[MAX_PATH];
-    WCHAR     query[260];
-    WCHAR     hex_buf[6 * 1024];
-    WCHAR     chg_buf[6 * 1024];
-    PWCHAR    lines[6];
-    PWCHAR    hex_text;
-    PWCHAR    chg_text;
-    BYTE      hex_bits;
-    BYTE      hex_num;
-    BYTE      chg_bits;
-    BYTE      chg_num;
-    BYTE      opt_num;
-    BYTE      opt_prev;
-    BYTE      wen_to_bin[64];
-    BYTE      btn_enabled[CMD_COUNT];
-    BYTE      btn_state[CMD_COUNT];
+    HINSTANCE hInstance;                // Handle to the application instance, used for loading resources and creating windows
+    HWND      hwnd[HWND_COUNT];         // Main window, command buttons, query edit, text area, options, load dialog and its controls
+    HFONT     font[FONT_COUNT];         // Fonts for hexagram name and text area
+    RECT      rect[RECT_COUNT];         // Rectangles for hexagram, changing lines and name areas
+    HICON     icon[ICON_COUNT];         // Icons for command buttons, options and line representations
+    HCURSOR   hCurHelp;                 // Help cursor for enabled options
+    FILETIME  ft;                       // Timestamp of the current reading, used in saving and loading
+    DWORD     seed;                     // The current random seed obtained from RDSEED, used for casting hexagrams
+    BOOL      close;                    // Flag to indicate when the window message loop should exit
+    WCHAR     ini_file[MAX_PATH];       // Path to the ini file that includes the text, saving and loading readings
+    WCHAR     query[260];               // The user's query input, which can be a hexagram number or a text query
+    WCHAR     hex_buf[6 * 1024];        // Buffer for the hexagram text
+    WCHAR     chg_buf[6 * 1024];        // Buffer for the changed hexagram text
+    PWCHAR    lines[6];                 // Pointers to the text for each of the moving/changing lines of the hexagram
+    PWCHAR    hex_text;                 // Pointer to the text for the current hexagram
+    PWCHAR    chg_text;                 // Pointer to the text for the changed hexagram
+    BYTE      hex_bits;                 // The binary representation of the current hexagram, where each bit represents a line (0 for yin, 1 for yang)
+    BYTE      hex_num;                  // The number of the current hexagram (1-64)
+    BYTE      chg_bits;                 // The binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
+    BYTE      chg_num;                  // The number of the changed hexagram (1-64), calculated by applying the changing lines to the original hexagram
+    BYTE      opt_num;                  // The currently selected option (hexagram, changed hexagram or changing lines)
+    BYTE      opt_prev;                 // The previously selected option, used to determine if the selection has changed and if the display needs to be updated
+    BYTE      wen_to_bin[64];           // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
+    BYTE      btn_enabled[CMD_COUNT];   // Flags to indicate whether each command button is enabled or disabled
+    BYTE      btn_state[CMD_COUNT];     // State of each command button (normal, hover, pressed), used for visual feedback in the UI
 } Global_t;
 
 Global_t g;
 
-// I-Ching.asm
-EXTERN_C BOOL    __stdcall rdseed_support(VOID);
-EXTERN_C DWORD   __stdcall get_seed      (VOID);
+// RDSEED.asm
+EXTERN_C BOOL    rdseed_support(VOID);
+EXTERN_C DWORD   get_seed      (VOID);
 
+// forward declarations
 VOID             cmd_back      (VOID);
 VOID             cmd_cast      (VOID);
 VOID             cmd_load      (VOID);
@@ -249,8 +249,10 @@ LRESULT CALLBACK wndproc_load  (HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     if (!rdseed_support()) {
         MessageBoxW(0, L"This computer's processor lacks support for the RDSEED instruction that's used by the casting technique.\n\nMinimum requirements:\n    INTEL Ivy Bridge or newer\n    AMD  Ryzen or newer", L"I-Ching", MB_ICONSTOP);
-        ExitProcess(1);
+        ExitProcess(ERROR_NOT_SUPPORTED);
     }
+
+    g.hInstance = GetModuleHandleW(0);
 
     GetModuleFileNameW(0, g.ini_file, _countof(g.ini_file));
     PathRenameExtensionW(g.ini_file, L".ini");
@@ -260,51 +262,27 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
 
         swprintf_s(msg, _countof(msg), L"Couldn't find the configuration file 'I-Ching.ini' in the application directory.\n\nExpected path:\n%s\n\nMake sure the file exists and is in the correct location.", g.ini_file);
         MessageBoxW(0, msg, L"I-Ching", MB_ICONERROR);
-        ExitProcess(1);
+        ExitProcess(ERROR_FILE_NOT_FOUND);
     }
 
     for (UINT i = 0; i < 64; i++)   // Create the reverse mapping from wen to bin
         g.wen_to_bin[bin_to_wen[i] - 1] = i;
 
-    g.hInstance = GetModuleHandleW(0);
-
-    for (UINT ico_idx = ICON_MAIN, res_id = IDI_MAIN; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
+    for (UINT ico_idx = ICON_CMD_CAST_SET, res_id = IDI_CMD_CAST; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
         g.icon[ico_idx] = LoadIconW(g.hInstance, MAKEINTRESOURCEW(res_id));
-
-    HRSRC hResource = FindResourceW(nullptr, MAKEINTRESOURCEW(IDB_BACKGROUND), L"BINARY");
-
-    if (hResource) {
-        DWORD   size  = SizeofResource(0, hResource);
-        HGLOBAL hData = LoadResource  (0, hResource);
-
-        if (hData)  {
-            if (LockResource(hData)) {
-                #pragma pack(push, 1)
-                typedef struct {    // just the parts needed, we don't need the color table for 24-bit bitmaps
-                    WORD  FileType;
-                    DWORD FileSize;
-                    WORD  Reserved1;
-                    WORD  Reserved2;;
-                    DWORD BitmapOffset;
-                } bitmap_header, *pbitmap_header;
-                #pragma pack(pop)
-
-                g.pPixels = (PBYTE)(hData) + ((pbitmap_header)hData)->BitmapOffset;
-            }
-        }
-    }
 
     INITCOMMONCONTROLSEX icc = { sizeof(INITCOMMONCONTROLSEX), ICC_LISTVIEW_CLASSES|ICC_TAB_CLASSES|ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icc);
 
     LoadLibraryW(L"RICHED20");
+
     g.opt_num  = HWND_OPT_HEXAGRAM;
     g.hCurHelp = LoadCursorW(0, IDC_HELP);
 
     WNDCLASSEXW wcex   = { sizeof(wcex) };
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+    wcex.hbrBackground = CreateSolidBrush(RGB(231, 208, 177));
     wcex.hCursor       = LoadCursorW(0, (LPCWSTR)IDC_ARROW);
-    wcex.hIconSm       = wcex.hIcon = g.icon[ICON_MAIN];
+    wcex.hIcon         = g.icon[ICON_CMD_CAST_SET];
     wcex.hInstance     = g.hInstance;
     wcex.lpfnWndProc   = wndproc;
     wcex.lpszClassName = L"I-Ching";
@@ -333,7 +311,7 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
         }
     }
 
-    ExitProcess(0);
+    ExitProcess(ERROR_SUCCESS);
 }
 
 // The window procedure for the main window. It handles messages such as WM_CREATE to initialize the main window, WM_CLOSE to set the close flag, and WM_PAINT to handle the 
@@ -392,8 +370,8 @@ VOID create_main(HWND hwnd_main) {
     SetWindowPos(hwnd_main, 0, x, y, cx, cy, SWP_NOZORDER);
 
     g.font[FONT_NAME] = CreateFontW(-14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Segoe UI");
-    g.font[FONT_TEXT] = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Tahoma");
-
+    g.font[FONT_TEXT] = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Verdana");
+ 
     g.btn_enabled[CMD_CAST] = 1;
     g.btn_enabled[CMD_LOAD] = 1;
 
@@ -456,8 +434,9 @@ VOID create_main(HWND hwnd_main) {
     g.hwnd[HWND_OPT_CHG_LINE1] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_1_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE1, 0, 0);
     SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE1, 0x000100);
 
-    g.hwnd[HWND_TEXT] = hwnd = CreateWindowExW(WS_EX_TRANSPARENT, RICHEDIT_CLASSW, 0, WS_CHILD|WS_VSCROLL|ES_MULTILINE|WS_VISIBLE, TEXT_X, TEXT_Y, TEXT_CX, TEXT_CY, hwnd_main, (HMENU)HWND_TEXT, 0, 0);
+    g.hwnd[HWND_TEXT] = hwnd = CreateWindowExW(0, RICHEDIT_CLASSW, 0, WS_CHILD|WS_VSCROLL|ES_MULTILINE|WS_VISIBLE, TEXT_X, TEXT_Y, TEXT_CX, TEXT_CY, hwnd_main, (HMENU)HWND_TEXT, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
+    SendMessageW(hwnd, EM_SETBKGNDCOLOR, 0, RGB(231, 208, 177));
     SendMessageW(hwnd, EM_SETTYPOGRAPHYOPTIONS, TO_ADVANCEDTYPOGRAPHY, TO_ADVANCEDTYPOGRAPHY);
     SendMessageW(hwnd, EM_SETREADONLY, TRUE, 0);
 
@@ -480,9 +459,6 @@ VOID paint_main(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC         hdc    = BeginPaint(hwnd, &ps);
     HBRUSH      hBrush = CreateSolidBrush(RGB(116, 116, 116));
-
-    // background
-    StretchDIBits(hdc,  0, 0, MAIN_CLIENT_CX, MAIN_CLIENT_CY, 0, 0, MAIN_CLIENT_CX, MAIN_CLIENT_CY, g.pPixels, &main_bmpInfo, DIB_RGB_COLORS, SRCCOPY);
 
     // hexagram and change areas
     FrameRect(hdc, &g.rect[RECT_HEX], hBrush);
@@ -570,10 +546,10 @@ LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         FillRect(hdc, &ps.rcPaint, hBrush);
 
         switch (dwRefData) {
-            case 0: icon = enabled ? ICON_CMD_CAST_ON : ICON_CMD_CAST_OFF; break;  
-            case 1: icon = enabled ? ICON_CMD_BACK_ON : ICON_CMD_BACK_OFF; break;
-            case 2: icon = enabled ? ICON_CMD_SAVE_ON : ICON_CMD_SAVE_OFF; break;
-            case 3: icon =           ICON_CMD_LOAD_ON;                     break;
+            case 0: icon = enabled ? ICON_CMD_CAST_SET : ICON_CMD_CAST_OFF; break;  
+            case 1: icon = enabled ? ICON_CMD_BACK_SET : ICON_CMD_BACK_OFF; break;
+            case 2: icon = enabled ? ICON_CMD_SAVE_SET : ICON_CMD_SAVE_OFF; break;
+            case 3: icon =           ICON_CMD_LOAD_SET;                     break;
         }
 
         switch (g.btn_state[dwRefData]) {
@@ -594,7 +570,7 @@ LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         }
 
-        DrawIconEx(hdc, 8 + delta, 8 + delta, g.icon[icon], 48, 48, 0, 0, DI_IMAGE|DI_MASK);
+        DrawIconEx(hdc, 8 + delta, 8 + delta, g.icon[icon], 48, 48, 0, 0, DI_NORMAL);
         DrawEdge(hdc, &ps.rcPaint, edge, flags);
 
         DeleteObject(hBrush);
@@ -663,10 +639,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             }
 
             SetWindowTextW(g.hwnd[HWND_TEXT], p);
-            InvalidateRect(g.hwnd[g.opt_prev], 0, FALSE);
-            InvalidateRect(g.hwnd[g.opt_num], 0, FALSE);
-            InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], FALSE);
-            InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_HEX],  FALSE);
+            InvalidateRect(g.hwnd[HWND_MAIN], 0, TRUE);
         }
         break;
 
@@ -696,9 +669,9 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
             if (enabled) {
                 if (uIdSubclass == g.opt_num)
-                    DrawIconEx(hdc, 0, 0, g.icon[ICON_OPT_SET], 16, 16, 0, 0, DI_IMAGE|DI_MASK);
+                    DrawIconEx(hdc, 0, 0, g.icon[ICON_OPT_SET], 16, 16, 0, 0, DI_NORMAL);
                 else
-                    DrawIconEx(hdc, 0, 0, g.icon[ICON_OPT_OFF], 16, 16, 0, 0, DI_IMAGE|DI_MASK);
+                    DrawIconEx(hdc, 0, 0, g.icon[ICON_OPT_OFF], 16, 16, 0, 0, DI_NORMAL);
 
                 switch (uIdSubclass) {
                 case HWND_OPT_HEXAGRAM:
@@ -728,9 +701,9 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                     ico_idx = chg_bit ? (hex_bit ? ICON_LINE_8 : ICON_LINE_7) : (hex_bit ? ICON_LINE_7 : ICON_LINE_8);
 
                 if (ico_idx) {
-                    DrawIconEx(hdc,  32, 3, g.icon[ICON_NUMBER_1 + line],                    8, 10, 0, 0, DI_IMAGE|DI_MASK);
-                    DrawIconEx(hdc,  56, 3, g.icon[ico_idx],                               140, 10, 0, 0, DI_IMAGE|DI_MASK);
-                    DrawIconEx(hdc, 212, 3, g.icon[ICON_NUMBER_6 - ICON_LINE_6 + ico_idx],   8, 10, 0, 0, DI_IMAGE|DI_MASK);
+                    DrawIconEx(hdc,  32, 3, g.icon[ICON_NUMBER_1 + line],                    8, 10, 0, 0, DI_NORMAL);
+                    DrawIconEx(hdc,  56, 3, g.icon[ico_idx],                               140, 10, 0, 0, DI_NORMAL);
+                    DrawIconEx(hdc, 212, 3, g.icon[ICON_NUMBER_6 - ICON_LINE_6 + ico_idx],   8, 10, 0, 0, DI_NORMAL);
                 }
             } break;
     
@@ -747,9 +720,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
 #pragma region commands
 
-// Executes the casting process to generate a hexagram based on the user's query or a specified hexagram number. The function first ensures that the entropy 
-// buffer is empty and then retrieves a fresh seed using the RDSEED instruction. The current system time is also captured to be associated with the reading. 
-// Depending on the user's input, the function either generates a hexagram based on a specified number or calculates it from the seed.
+// Executes the casting process to generate a hexagram based on the user's query or a specified hexagram number.
 //==========================================================================================================================================================
 VOID cmd_cast(VOID) {
     BOOL saveable;
@@ -784,7 +755,7 @@ VOID cmd_cast(VOID) {
     SetWindowTextW(g.hwnd[HWND_TEXT], g.hex_text);
     SendMessageW(g.hwnd[HWND_QUERY], EM_SETREADONLY, TRUE, 0);
     SetFocus(g.hwnd[HWND_MAIN]);
-    InvalidateRect(g.hwnd[HWND_MAIN], 0, FALSE);
+    InvalidateRect(g.hwnd[HWND_MAIN], 0, TRUE);
 }
 
 // Resets the application state to allow for a new reading. This includes clearing the hexagram and changing line data, resetting the line selection, and 
@@ -806,7 +777,7 @@ VOID cmd_back(VOID) {
     SetWindowTextW(g.hwnd[HWND_TEXT], 0);
     SendMessageW(g.hwnd[HWND_QUERY], EM_SETREADONLY, FALSE, 0);
     SetFocus(g.hwnd[HWND_QUERY]);
-    InvalidateRect(g.hwnd[HWND_MAIN], 0, FALSE);
+    InvalidateRect(g.hwnd[HWND_MAIN], 0, TRUE);
 }
 
 // Saves the current reading to the ini file.
@@ -817,7 +788,7 @@ VOID cmd_save(VOID) {
     WCHAR query[300];
     INT   count;
 
-    count = GetWindowTextW(g.hwnd[HWND_QUERY], query, _countof(query));
+    GetWindowTextW(g.hwnd[HWND_QUERY], query, _countof(query));
 
     swprintf_s(buf, _countof(buf), L"0x%08X 0x%08X 0x%05X %s", g.ft.dwHighDateTime, g.ft.dwLowDateTime, g.seed, query);
 
@@ -839,7 +810,7 @@ VOID cmd_load(VOID) {
     WNDCLASSEXW wcex   = { sizeof(wcex) };
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
     wcex.hCursor       = LoadCursorW(0, (LPCWSTR)IDC_ARROW);
-    wcex.hIconSm       = wcex.hIcon = g.icon[ICON_MAIN];
+    wcex.hIcon         = g.icon[ICON_CMD_LOAD_SET];
     wcex.hInstance     = g.hInstance;
     wcex.lpfnWndProc   = wndproc_load;
     wcex.lpszClassName = L"I-CHING_LOAD";
@@ -920,7 +891,7 @@ VOID create_load(HWND hwnd_load) {
     SetWindowPos(hwnd_load, 0, rcWindow.left, rcWindow.top, RECT_CX(rcWindow), RECT_CY(rcWindow), SWP_NOZORDER);
     GetClientRect(hwnd_load, &rcClient);
     
-    g.hwnd[HWND_LOAD_OK] = hwnd = CreateWindowExW(0, L"BUTTON", L"Open", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100 - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_load, (HMENU)IDC_LOAD_LOAD, 0, 0);
+    g.hwnd[HWND_LOAD_OPEN]   = hwnd = CreateWindowExW(0, L"BUTTON", L"Open", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100 - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_load, (HMENU)IDC_LOAD_LOAD, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_NAME], 0);
     EnableWindow(hwnd, FALSE);
 
@@ -1008,7 +979,6 @@ VOID create_load(HWND hwnd_load) {
         }
     }
 
-    g.hwnd[HWND_LOAD_LIST] = hwnd;
     size_columns();
 }
 
@@ -1023,7 +993,7 @@ VOID notify_load(HWND hwnd, LPARAM lParam) {
 
     switch (lpHdr->code) {
     case NM_CLICK:
-        EnableWindow(g.hwnd[HWND_LOAD_OK], selected_item() != -1);
+        EnableWindow(g.hwnd[HWND_LOAD_OPEN], selected_item() != -1);
         break;
 
     case NM_DBLCLK:
