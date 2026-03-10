@@ -30,20 +30,6 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="I-Ching.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="Opt_off.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="Opt_set.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="Cast.ico">
-      <Filter>Resource Files</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
     <MASM Include="RDSEED.asm">
       <Filter>Source Files</Filter>
     </MASM>

@@ -81,12 +81,6 @@
     <ResourceCompile Include="I-Ching.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Cast.ico" />
-    <Image Include="I-Ching.ico" />
-    <Image Include="Opt_off.ico" />
-    <Image Include="Opt_set.ico" />
-  </ItemGroup>
-  <ItemGroup>
     <MASM Include="RDSEED.asm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </MASM>
