@@ -89,6 +89,30 @@
     <None Include="Build\I-Ching.ini" />
     <None Include="README.md" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="1.ico" />
+    <Image Include="2.ico" />
+    <Image Include="3.ico" />
+    <Image Include="4.ico" />
+    <Image Include="5.ico" />
+    <Image Include="6.ico" />
+    <Image Include="7.ico" />
+    <Image Include="8.ico" />
+    <Image Include="9.ico" />
+    <Image Include="back_off.ico" />
+    <Image Include="back_set.ico" />
+    <Image Include="cast_off.ico" />
+    <Image Include="cast_set.ico" />
+    <Image Include="line_6.ico" />
+    <Image Include="line_7.ico" />
+    <Image Include="line_8.ico" />
+    <Image Include="line_9.ico" />
+    <Image Include="load.ico" />
+    <Image Include="opt_off.ico" />
+    <Image Include="opt_set.ico" />
+    <Image Include="save_off.ico" />
+    <Image Include="save_set.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />

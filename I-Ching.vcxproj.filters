@@ -38,4 +38,72 @@
     <None Include="Build\I-Ching.ini" />
     <None Include="README.md" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="cast_set.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="back_set.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="save_set.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="load.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="cast_off.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="back_off.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="save_off.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="opt_off.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="opt_set.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="line_6.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="line_7.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="line_8.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="line_9.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="1.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="2.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="3.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="4.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="5.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="6.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="7.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="8.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="9.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>
