@@ -22,7 +22,7 @@ In particular, see Figure 14.1 and the associated discussion. Binary encoding fr
 */
 
 // 20260311 1.0.0.1 - Initial release
-// 
+// 20260312 1.0.0.2 - Optimised radio button WM_PAINT
 //
  
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
