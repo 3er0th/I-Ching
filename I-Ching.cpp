@@ -81,7 +81,6 @@ In particular, see Figure 14.1 and the associated discussion. Binary encoding fr
 #define HEX_LINE_X      (HEX_NAME_X)
 #define CHG_LINE_X      (CHG_NAME_X)
 
-
 #define LINE_6_Y        (HEX_NAME_Y + (UI_PAD * 4))
 #define LINE_5_Y        (LINE_6_Y + (UI_PAD * 3))
 #define LINE_4_Y        (LINE_5_Y + (UI_PAD * 3))
@@ -252,7 +251,7 @@ LRESULT CALLBACK wndproc_load  (HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 //=================================================================================================================================================================================
 EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     if (!rdseed_support()) {
-        MessageBoxW(0, L"This computer's processor lacks support for the RDSEED instruction that's used by the casting technique.\n\nMinimum requirements:\n    INTEL Ivy Bridge or newer\n    AMD  Ryzen or newer", L"I-Ching", MB_ICONSTOP);
+        MessageBoxW(0, L"This computer's processor lacks support for the RDSEED instruction that's used by the casting technique.\n\nMinimum requirements:\n    INTEL Ivy Bridge or newer\n    AMD  Ryzen or newer", L"I Ching", MB_ICONSTOP);
         ExitProcess(ERROR_NOT_SUPPORTED);
     }
 
@@ -264,8 +263,8 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     if (!file_exists(g.ini_file)) {
         WCHAR msg[512];
 
-        swprintf_s(msg, _countof(msg), L"Couldn't find the configuration file 'I-Ching.ini' in the application directory.\n\nExpected path:\n%s\n\nMake sure the file exists and is in the correct location.", g.ini_file);
-        MessageBoxW(0, msg, L"I-Ching", MB_ICONERROR);
+        swprintf_s(msg, _countof(msg), L"Couldn't find the configuration file 'I Ching.ini' in the application directory.\n\nExpected path:\n%s\n\nMake sure the file exists and is in the correct location.", g.ini_file);
+        MessageBoxW(0, msg, L"I Ching", MB_ICONERROR);
         ExitProcess(ERROR_FILE_NOT_FOUND);
     }
 
@@ -366,10 +365,10 @@ VOID create_main(HWND hwnd_main) {
     GetWindowRect(hwnd_main, &rcWindow);
     GetClientRect(hwnd_main, &rcClient);
 
-    INT cx = MAIN_CLIENT_CX + (RECT_CX(rcWindow) - RECT_CX(rcClient));
-    INT cy = MAIN_CLIENT_CY + (RECT_CY(rcWindow) - RECT_CY(rcClient));
-    INT  x = mi.rcWork.left + ((RECT_CX(mi.rcWork) - cx) / 2);
-    INT  y = mi.rcWork.top  + ((RECT_CY(mi.rcWork) - cy) / 3);
+    INT cx = MAIN_CLIENT_CX +  RECT_CX(rcWindow) - RECT_CX(rcClient);
+    INT cy = MAIN_CLIENT_CY +  RECT_CY(rcWindow) - RECT_CY(rcClient);
+    INT  x = mi.rcWork.left + (RECT_CX(mi.rcWork) - cx) / 2;
+    INT  y = mi.rcWork.top  + (RECT_CY(mi.rcWork) - cy) / 3;
 
     SetWindowPos(hwnd_main, 0, x, y, cx, cy, SWP_NOZORDER);
 
@@ -645,7 +644,9 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             }
 
             SetWindowTextW(g.hwnd[HWND_TEXT], p);
-            InvalidateRect(g.hwnd[HWND_MAIN], 0, TRUE);
+            InvalidateRect(hwnd, 0, FALSE);
+            InvalidateRect(g.hwnd[g.opt_prev], 0, FALSE);
+            InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], TRUE);
         }
         break;
 

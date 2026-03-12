@@ -35,8 +35,8 @@
     </MASM>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Build\I-Ching.ini" />
     <None Include="README.md" />
+    <None Include="Build\I Ching.ini" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="cast_set.ico">
