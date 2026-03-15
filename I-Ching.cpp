@@ -1,28 +1,27 @@
 
-/*
-
-README.md
+/* README.md
 
 I Ching, also known as the Book of Changes, is an ancient Chinese divination text that has been used for ~3 millennia to provide guidance and insight into various aspects of life. 
 It consists of 64 hexagrams, each made up of six lines that can be either broken (yin) or unbroken (yang). The hexagrams are used to represent different situations and their 
 potential outcomes, and they are often consulted for decision-making and understanding the flow of events.
 
-This program is an implementation of the I Ching that employs hardware-based entropy sourced from Johnson-Nyquist thermal noise to generate high-quality random numbers.
+This program is an implementation of the I Ching that employs hardware-based entropy, sourced from Johnson-Nyquist thermal noise to generate high-quality random numbers.
 
 See the RDSEED instruction mentioned in this Wikipedia article for more information.
 https://en.wikipedia.org/wiki/RDRAND
 
-Leibniz, the co-inventor of calculus with Newton, was inspired by the I Ching, particularly its binary system, which influenced the development of modern binary 
-code used in computing. He saw connections between the I Ching's hexagrams and binary representation, linking ancient Chinese philosophy to contemporary mathematics and technology.
+Leibniz, the co-inventor of calculus with Newton, was inspired by the I Ching, particularly its binary system, which influenced the development of modern binary code used 
+in computing. He saw connections between the I Ching's hexagrams and binary representation, linking ancient Chinese philosophy to contemporary mathematics and technology.
 
 https://therealsamizdat.com/2016/07/15/eco-the-i-ching-and-the-binary-calculus/
 
-In particular, see Figure 14.1 and the associated discussion. Binary encoding from thousands of years ago.
-
+In particular, see Figure 14.1 and the associated text. Binary from thousands of years ago.
 */
 
+//
 // 20260311 1.0.0.1 - Initial release
 // 20260312 1.0.0.2 - Optimised radio button WM_PAINT
+// 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed.
 //
  
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -39,7 +38,8 @@ In particular, see Figure 14.1 and the associated discussion. Binary encoding fr
 #include "resource.h"
 
 #pragma region defines consts etc
-#define RECT_CX(rc)     ((rc).right - (rc).left)
+
+#define RECT_CX(rc)     ((rc).right  - (rc).left)
 #define RECT_CY(rc)     ((rc).bottom - (rc).top)
 
 #define MAIN_CLIENT_CX	(600)
@@ -59,7 +59,7 @@ In particular, see Figure 14.1 and the associated discussion. Binary encoding fr
 #define MAIN_CMD_CAST_X (UI_PAD)
 #define MAIN_CMD_BACK_X (UI_PAD + (CMD_CX + UI_PAD) * 1)
 #define MAIN_CMD_SAVE_X (UI_PAD + (CMD_CX + UI_PAD) * 2)
-#define MAIN_CMD_LOAD_X (UI_PAD + (CMD_CX + UI_PAD) * 3)
+#define MAIN_CMD_OPEN_X (UI_PAD + (CMD_CX + UI_PAD) * 3)
 
 #define EDIT_Y          (UI_PAD +  CMD_CY + UI_PAD)
 
@@ -99,12 +99,14 @@ In particular, see Figure 14.1 and the associated discussion. Binary encoding fr
 #define TEXT_CX         (EDIT_CX)
 #define TEXT_CY         (MAIN_CLIENT_CY - TEXT_Y - UI_PAD)
 
+#define LIST_ITEM(hwnd) (ListView_GetNextItem((hwnd), -1, LVNI_SELECTED))
+
 enum e_hwnd {
     HWND_MAIN,
     HWND_CMD_CAST,
     HWND_CMD_BACK,
     HWND_CMD_SAVE,
-    HWND_CMD_LOAD,
+    HWND_CMD_OPEN,
     HWND_QUERY,
     HWND_TEXT,
     HWND_OPT_HEXAGRAM,
@@ -121,10 +123,10 @@ enum e_hwnd {
     HWND_OPT_CHG_LINE3,
     HWND_OPT_CHG_LINE2,
     HWND_OPT_CHG_LINE1,
-    HWND_LOAD,
-    HWND_LOAD_LIST,
-    HWND_LOAD_OPEN,
-    HWND_LOAD_CANCEL,
+    HWND_OPEN,
+    HWND_OPEN_LIST,
+    HWND_OPEN_OPEN,
+    HWND_OPEN_CANCEL,
     HWND_COUNT,
 };
 
@@ -145,7 +147,7 @@ enum e_icon {
     ICON_CMD_CAST_SET,
     ICON_CMD_BACK_SET,
     ICON_CMD_SAVE_SET,
-    ICON_CMD_LOAD_SET,
+    ICON_CMD_OPEN_SET,
     ICON_CMD_CAST_OFF,
     ICON_CMD_BACK_OFF,
     ICON_CMD_SAVE_OFF,
@@ -171,7 +173,7 @@ enum e_btn {
     CMD_CAST,
     CMD_BACK,
     CMD_SAVE,
-    CMD_LOAD,
+    CMD_OPEN,
     CMD_COUNT,
 };
 
@@ -183,7 +185,7 @@ enum e_btn_state {
 
 #pragma endregion
 
-#pragma region global data and function declarations
+#pragma region global data and forward function declarations
 
 const BYTE bin_to_wen[64] = { 2, 24, 7, 19, 15, 36, 46, 11, 16, 51, 40, 54, 62, 55, 32, 34, 8, 3, 29, 60, 39, 63, 48, 5, 45, 17, 47, 58, 31, 49, 28, 43, 23, 27, 4, 41, 52, 22, 18, 26, 35, 21, 64, 38, 56, 30, 50, 14, 20, 42, 59, 61, 53, 37, 57, 9, 12, 25, 6, 10, 33, 13, 44, 1 };
 
@@ -193,26 +195,26 @@ typedef struct {
     HFONT     font[FONT_COUNT];       // Fonts for hexagram name and text
     RECT      rect[RECT_COUNT];       // Rectangles for the hexagram, the changed hexagram and name areas
     HICON     icon[ICON_COUNT];       // Icons for command buttons, options and line representations
-    HCURSOR   hCurHelp;               // Help cursor for enabled option buttons
-    FILETIME  ft;                     // Timestamp of the reading, used in save/load
+    BYTE      btn_enabled[CMD_COUNT]; // Button enabled or disabled
+    BYTE      btn_state[CMD_COUNT];   // State of each button (normal, hover or pressed)
+    BYTE      wen_to_bin[64];         // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
+    HCURSOR   hCurHelp;               // Help cursor for clickable options
+    FILETIME  ft;                     // Timestamp of the reading
+    BOOL      close;                  // Indicates when the current window message loop should bail
     DWORD     seed;                   // The random seed obtained via RDSEED, used for casting hexagrams
-    BOOL      close;                  // Flag to indicate when the window message loop should exit
-    WCHAR     ini_file[MAX_PATH];     // Path to the ini file that includes the text and saved
-    WCHAR     query[260];             // The user's input, either a hexagram number or a text query
-    WCHAR     buf_hex[6 * 1024];      // Buffer for the hexagram text
-    WCHAR     buf_chg[6 * 1024];      // Buffer for the changed hexagram text
+    DWORD     hex_bits;               // The binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
+    DWORD     chg_bits;               // The binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
+    UINT      hex_num;                // The number of the main hexagram (1-64)
+    UINT      chg_num;                // The number of the changed hexagram (1-64)
+    UINT      opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
+    UINT      opt_prev;               // The previously selected option
     PWCHAR    lines[6];               // Pointers to the text for each of the moving/changing lines of the main hexagram
     PWCHAR    hex_text;               // Pointer to the text for the main hexagram
     PWCHAR    chg_text;               // Pointer to the text for the changed hexagram
-    BYTE      hex_bits;               // The binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
-    BYTE      hex_num;                // The number of the main hexagram (1-64)
-    BYTE      chg_bits;               // The binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
-    BYTE      chg_num;                // The number of the changed hexagram (1-64), calculated by applying the changing lines to the original hexagram
-    BYTE      opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
-    BYTE      opt_prev;               // The previously selected option, used to determine if the selection has changed and if the display needs to be updated
-    BYTE      wen_to_bin[64];         // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
-    BYTE      btn_enabled[CMD_COUNT]; // Flags to indicate whether each command button is enabled or disabled
-    BYTE      btn_state[CMD_COUNT];   // State of each command button (normal, hover, pressed), used for visual feedback in the UI
+    WCHAR     query[260];             // The user's input, either a hexagram number or a text query
+    WCHAR     buf_hex[6 * 1024];      // Buffer for the hexagram text
+    WCHAR     buf_chg[6 * 1024];      // Buffer for the changed hexagram text
+    WCHAR     ini_file[MAX_PATH];     // Path to the 'I Ching.ini' file for the I Ching text and saved readings
 } Global_t;
 
 Global_t g;
@@ -224,28 +226,25 @@ EXTERN_C DWORD   get_seed      (VOID);
 // forward declarations
 VOID             cmd_back      (VOID);
 VOID             cmd_cast      (VOID);
-VOID             cmd_load      (VOID);
-VOID             cmd_load_item (VOID);
+VOID             cmd_open      (VOID);
 VOID             cmd_save      (VOID);
-VOID             create_load   (HWND hwnd);
+VOID             create_open   (HWND hwnd);
 VOID             create_main   (HWND hwnd);
-VOID             calc_hex_full (VOID);
-VOID             calc_hex_nums (DWORD seed, DWORD& hex, DWORD& chg);
+VOID             calc_hex_all  (VOID);
+VOID             calc_hex_num  (DWORD seed, DWORD& hex, DWORD& chg);
 VOID             get_hex_text  (VOID);
 BOOL             file_exists   (PCWSTR path);
-VOID             notify_load   (HWND hwnd, LPARAM lParam);
+VOID             open_item     (VOID);
 VOID             paint_main    (HWND hwnd);
-INT              selected_item (VOID);
-VOID             size_columns  (VOID);
 LRESULT CALLBACK subproc_cmd   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 LRESULT CALLBACK subproc_edit  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 LRESULT CALLBACK subproc_opt   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 LRESULT CALLBACK wndproc_main  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK wndproc_load  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK wndproc_open  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 #pragma endregion
 
-#pragma region entrypoint and window procedure
+#pragma region application entrypoint and window procedure
 
 // The entry point of the application. It checks for RDSEED support, loads resources, initializes the main window, and starts the message loop to handle user interactions.
 //=================================================================================================================================================================================
@@ -261,17 +260,17 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     PathRenameExtensionW(g.ini_file, L".ini");
 
     if (!file_exists(g.ini_file)) {
-        WCHAR msg[512];
+        WCHAR msg[MAX_PATH + 180];
 
         swprintf_s(msg, _countof(msg), L"Couldn't find the configuration file 'I Ching.ini' in the application directory.\n\nExpected path:\n%s\n\nMake sure the file exists and is in the correct location.", g.ini_file);
         MessageBoxW(0, msg, L"I Ching", MB_ICONERROR);
         ExitProcess(ERROR_FILE_NOT_FOUND);
     }
 
-    for (UINT i = 0; i < 64; i++)   // Create the reverse mapping from wen to bin
+    for (INT i = 0; i < 64; i++) // Create the reverse mapping from wen to bin
         g.wen_to_bin[bin_to_wen[i] - 1] = i;
 
-    for (UINT ico_idx = ICON_CMD_CAST_SET, res_id = IDI_CMD_CAST; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
+    for (INT ico_idx = ICON_CMD_CAST_SET, res_id = IDI_CMD_CAST; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
         g.icon[ico_idx] = LoadIconW(g.hInstance, MAKEINTRESOURCEW(res_id));
 
     INITCOMMONCONTROLSEX icc = { sizeof(INITCOMMONCONTROLSEX), ICC_LISTVIEW_CLASSES|ICC_TAB_CLASSES|ICC_STANDARD_CLASSES };
@@ -317,8 +316,7 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     ExitProcess(ERROR_SUCCESS);
 }
 
-// The window procedure for the main window. It handles messages such as WM_CREATE to initialize the main window, WM_CLOSE to set the close flag, and WM_PAINT to handle the 
-// painting of the window.
+// The window procedure for the main window.
 //==================================================================================================================================================================================
 LRESULT CALLBACK wndproc_main(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
@@ -343,14 +341,12 @@ LRESULT CALLBACK wndproc_main(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 
 #pragma endregion
 
-#pragma region main window events and controls
+#pragma region main window and control events
 
-// Initializes the main window and its controls. It sets the position and size of the window based on the primary monitor's work area, creates fonts for different UI elements, 
-// and creates the command buttons, query edit control, hexagram and changing lines options, and the text area for displaying results.
+// Initializes the main window and its controls.
 //=================================================================================================================================================================================
 VOID create_main(HWND hwnd_main) {
     POINT       ptCursor;
-    HMONITOR    hMonitor;
     RECT        rcWindow;
     RECT        rcClient;
     HWND        hwnd;
@@ -358,7 +354,8 @@ VOID create_main(HWND hwnd_main) {
     MONITORINFO mi = { sizeof(mi) };
 
     GetCursorPos(&ptCursor);
-    hMonitor = MonitorFromPoint(ptCursor, MONITOR_DEFAULTTOPRIMARY);
+
+    HMONITOR hMonitor = MonitorFromPoint(ptCursor, MONITOR_DEFAULTTOPRIMARY);
 
     GetMonitorInfoW(hMonitor, &mi);
 
@@ -376,7 +373,7 @@ VOID create_main(HWND hwnd_main) {
     g.font[FONT_TEXT] = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Verdana");
  
     g.btn_enabled[CMD_CAST] = 1;
-    g.btn_enabled[CMD_LOAD] = 1;
+    g.btn_enabled[CMD_OPEN] = 1;
 
     g.hwnd[HWND_CMD_CAST] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|SS_OWNERDRAW, MAIN_CMD_CAST_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_CAST, 0, 0);
     SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_CAST, 0);
@@ -387,8 +384,8 @@ VOID create_main(HWND hwnd_main) {
     g.hwnd[HWND_CMD_SAVE] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_SAVE_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_SAVE, 0, 0);
     SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_SAVE, 2);
 
-    g.hwnd[HWND_CMD_LOAD] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_LOAD_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_LOAD, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_LOAD, 3);
+    g.hwnd[HWND_CMD_OPEN] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_OPEN_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_OPEN, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_OPEN, 3);
 
     g.hwnd[HWND_QUERY]    = hwnd = CreateWindowExW(0, L"EDIT",   0, WS_CHILD|WS_BORDER|WS_VISIBLE|ES_NOHIDESEL, UI_PAD, EDIT_Y, EDIT_CX, EDIT_CY,  hwnd_main,  (HMENU)HWND_QUERY, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
@@ -456,7 +453,7 @@ VOID create_main(HWND hwnd_main) {
     SetFocus(g.hwnd[HWND_QUERY]);
 }
 
-// Handles the painting of the main window. It fills the background bitmap, draws the hexagram and changing lines rectangles, and displays the name of the hexagram 
+// Handles the painting of the main window.
 //==================================================================================================================================================================================
 VOID paint_main(HWND hwnd) {
     PAINTSTRUCT ps;
@@ -483,48 +480,48 @@ VOID paint_main(HWND hwnd) {
     EndPaint(hwnd, &ps);
 }
 
-// Handles the interaction with the command buttons (cast, back, save, load). When the user clicks on a button, it checks if it's enabled and performs the corresponding action 
-// (casting a new hexagram, going back to the previous one, saving the current state, or loading a saved state).
+// Handles the interaction with the command buttons (cast, back, save and load).
 //=================================================================================================================================================================================
 LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
     BOOL enabled = g.btn_enabled[dwRefData];
 
+    if (!enabled && message != WM_PAINT)
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+
     switch (message) {
     case WM_LBUTTONDOWN:
-        if (enabled) {
-            g.btn_state[dwRefData] = CMD_DOWN;
-            InvalidateRect(hwnd, 0, FALSE);
-        } break;
+        g.btn_state[dwRefData] = CMD_DOWN;
+        InvalidateRect(hwnd, 0, FALSE);
+        break;
 
     case WM_LBUTTONUP:
-        if (enabled) {
-            switch (uIdSubclass) {
-            case HWND_CMD_CAST:
-                cmd_cast();
-                g.btn_state[dwRefData] = g.btn_enabled[dwRefData] ? CMD_OVER : CMD_NORMAL;
-                break;
+        switch (uIdSubclass) {
+        case HWND_CMD_CAST:
+            cmd_cast();
+            g.btn_state[dwRefData] = g.btn_enabled[dwRefData] ? CMD_OVER : CMD_NORMAL;
+            break;
 
-            case HWND_CMD_BACK:
-                cmd_back();
-                g.btn_state[dwRefData] = g.btn_enabled[dwRefData] ? CMD_OVER : CMD_NORMAL;
-                break;
+        case HWND_CMD_BACK:
+            cmd_back();
+            g.btn_state[dwRefData] = g.btn_enabled[dwRefData] ? CMD_OVER : CMD_NORMAL;
+            break;
 
-            case HWND_CMD_SAVE:
-                cmd_save();
-                g.btn_state[dwRefData] = CMD_NORMAL;
-                g.btn_enabled[dwRefData] = 0;
-                break;
+        case HWND_CMD_SAVE:
+            cmd_save();
+            g.btn_state[dwRefData] = CMD_NORMAL;
+            g.btn_enabled[dwRefData] = 0;
+            break;
 
-            case HWND_CMD_LOAD:
-                cmd_load();
-                break;
-            }
+        case HWND_CMD_OPEN:
+            cmd_open();
+            break;
+        }
 
-            InvalidateRect(hwnd, 0, FALSE);
-        } break;
+        InvalidateRect(hwnd, 0, FALSE);
+        break;
 
     case WM_MOUSEMOVE:
-        if (enabled && g.btn_state[dwRefData] == CMD_NORMAL) {
+        if (g.btn_state[dwRefData] == CMD_NORMAL) {
             TRACKMOUSEEVENT tme = { sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0 };
 
             g.btn_state[dwRefData] = CMD_OVER;
@@ -552,7 +549,7 @@ LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             case 0: icon = enabled ? ICON_CMD_CAST_SET : ICON_CMD_CAST_OFF; break;  
             case 1: icon = enabled ? ICON_CMD_BACK_SET : ICON_CMD_BACK_OFF; break;
             case 2: icon = enabled ? ICON_CMD_SAVE_SET : ICON_CMD_SAVE_OFF; break;
-            case 3: icon =           ICON_CMD_LOAD_SET;                     break;
+            case 3: icon =           ICON_CMD_OPEN_SET;                     break;
         }
 
         switch (g.btn_state[dwRefData]) {
@@ -587,7 +584,7 @@ LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
     return 0;
 }
 
-// Handles the keyboard input for the query edit control. When the user presses the Enter key, it triggers the casting of a new hexagram based on the query entered.
+// Handles the keyboard input for the query edit control.
 //=================================================================================================================================================================================
 LRESULT CALLBACK subproc_edit(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
     if (wParam == VK_RETURN) {
@@ -602,24 +599,32 @@ LRESULT CALLBACK subproc_edit(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 }
 
 
-// Handles the interaction with the hexagram and changing lines options. When the user clicks on an option, it checks if it's enabled and updates the selected line accordingly.
+// Handles the interaction with the hexagram and changing lines option buttons.
 //================================================================================================================================================================================
 LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
-    BOOL enabled;
-    BYTE bits = (dwRefData >>  0) & 0xFF;
-    UINT line = (dwRefData >>  8) & 0xFF;
-    BOOL main = (dwRefData >> 16) & 0xFF;
+    if (message == WM_ERASEBKGND)   
+        return 0;
 
-    switch (uIdSubclass) {
-        case HWND_OPT_HEXAGRAM: enabled = TRUE;              break;
-        case HWND_OPT_CHANGING: enabled = g.chg_bits;        break;
-        default:                enabled = bits & g.chg_bits; break;
-    }
+    BOOL button;
+
+    if (uIdSubclass == HWND_OPT_HEXAGRAM)
+        button = TRUE;
+    else
+    if (uIdSubclass == HWND_OPT_CHANGING)
+        button = g.chg_bits;
+    else
+        button = dwRefData & g.chg_bits;
+
+    if (!button && message != WM_PAINT)
+        return DefSubclassProc(hwnd, message, wParam, lParam);
+
+    UINT line = (dwRefData >>  8) & 0xFF; // line number
+    BOOL main = (dwRefData >> 16) & 0xFF; // main or change hexagram
 
     switch (message) {
     case WM_LBUTTONDOWN:
-        if (enabled && g.opt_num != uIdSubclass) {
-            PWSTR p;
+        if (g.opt_num != uIdSubclass) {
+            PWSTR p = NULL;
 
             g.opt_prev = g.opt_num;
             g.opt_num  = (BYTE)uIdSubclass;
@@ -644,17 +649,17 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             }
 
             SetWindowTextW(g.hwnd[HWND_TEXT], p);
+
             InvalidateRect(hwnd, 0, FALSE);
             InvalidateRect(g.hwnd[g.opt_prev], 0, FALSE);
-            InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], TRUE);
+
+            if (g.opt_prev == HWND_OPT_CHANGING || g.opt_num == HWND_OPT_CHANGING)   
+                InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], TRUE);
         }
         break;
 
-    case WM_ERASEBKGND:
-        break;
-
     case WM_MOUSEMOVE:
-        if (enabled && g.opt_num != uIdSubclass) {
+        if (g.opt_num != uIdSubclass) {
             TRACKMOUSEEVENT tme = { sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0 };
 
             TrackMouseEvent(&tme);
@@ -674,7 +679,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             SetBkMode(hdc, TRANSPARENT);
             SetTextColor(hdc, 0);
 
-            if (enabled) {
+            if (button) {
                 if (uIdSubclass == g.opt_num)
                     DrawIconEx(hdc, 0, 0, g.icon[ICON_OPT_SET], 16, 16, 0, 0, DI_NORMAL);
                 else
@@ -725,13 +730,11 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 }
 #pragma endregion
 
-#pragma region commands
+#pragma region button commands
 
 // Executes the casting process to generate a hexagram based on the user's query or a specified hexagram number.
 //==========================================================================================================================================================
 VOID cmd_cast(VOID) {
-    BOOL saveable = FALSE;
-
     g.seed = get_seed();
 
     GetSystemTimeAsFileTime(&g.ft);
@@ -746,15 +749,12 @@ VOID cmd_cast(VOID) {
         g.chg_bits = 0b111111;
         g.chg_num  = bin_to_wen[g.hex_bits ^ g.chg_bits];
     } else {
-        calc_hex_full();
-        saveable = TRUE;
+        calc_hex_all();
+        g.btn_enabled[CMD_SAVE] = 1;
     }
 
     g.btn_enabled[CMD_CAST] = 0;
     g.btn_enabled[CMD_BACK] = 1;
-
-    if (saveable)
-        g.btn_enabled[CMD_SAVE] = 1;
 
     get_hex_text();
 
@@ -764,8 +764,7 @@ VOID cmd_cast(VOID) {
     InvalidateRect(g.hwnd[HWND_MAIN], 0, TRUE);
 }
 
-// Resets the application state to allow for a new reading. This includes clearing the hexagram and changing line data, resetting the line selection, and 
-// updating the state of the command buttons.
+// Resets the application state to allow for a new reading.
 //=========================================================================================================================================================
 VOID cmd_back(VOID) {
     g.hex_bits = 0;
@@ -809,52 +808,51 @@ VOID cmd_save(VOID) {
         MessageBoxW(g.hwnd[HWND_MAIN], L"Failed to save the reading. Make sure the application has permission to write to its directory.", L"Error", MB_ICONERROR);
 }
 
-// Creates and manages the load window, which allows the user to view and load previously saved readings. The window displays a list of saved readings from 
-// the ini file, and the user can select one to load into the main window.
+// Creates and manages the load window, which allows the user to view and open previously saved readings.
 //=========================================================================================================================================================
-VOID cmd_load(VOID) {
+VOID cmd_open(VOID) {
     WNDCLASSEXW wcex   = { sizeof(wcex) };
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
     wcex.hCursor       = LoadCursorW(0, (LPCWSTR)IDC_ARROW);
-    wcex.hIcon         = g.icon[ICON_CMD_LOAD_SET];
+    wcex.hIcon         = g.icon[ICON_CMD_OPEN_SET];
     wcex.hInstance     = g.hInstance;
-    wcex.lpfnWndProc   = wndproc_load;
+    wcex.lpfnWndProc   = wndproc_open;
     wcex.lpszClassName = L"I-CHING_LOAD";
 
     if (RegisterClassExW(&wcex)) {
-        g.hwnd[HWND_LOAD] = CreateWindowExW(0, wcex.lpszClassName, L"Saved readings", WS_CAPTION|WS_SYSMENU, 0, 0, 0, 0, g.hwnd[HWND_MAIN], 0, g.hInstance, 0);
+        g.hwnd[HWND_OPEN] = CreateWindowExW(0, wcex.lpszClassName, L"Saved readings", WS_CAPTION|WS_SYSMENU, 0, 0, 0, 0, g.hwnd[HWND_MAIN], 0, g.hInstance, 0);
 
-        if (g.hwnd[HWND_LOAD]) {
+        if (g.hwnd[HWND_OPEN]) {
             EnableWindow(g.hwnd[HWND_MAIN], FALSE);
-            ShowWindow(g.hwnd[HWND_LOAD], SW_NORMAL);
+            ShowWindow(g.hwnd[HWND_OPEN], SW_NORMAL);
             
             while (!g.close) {
                 MSG msg;
 
-                if (GetMessageW(&msg, g.hwnd[HWND_LOAD], 0, 0)) {
+                if (GetMessageW(&msg, g.hwnd[HWND_OPEN], 0, 0)) {
                     TranslateMessage(&msg);
                     DispatchMessageW(&msg);
                 }
             }
-        }
-    
-        g.close = FALSE;
 
-        EnableWindow(g.hwnd[HWND_MAIN], TRUE);
-        DestroyWindow(g.hwnd[HWND_LOAD]);
+            g.close = FALSE;
+
+            EnableWindow(g.hwnd[HWND_MAIN], TRUE);
+            DestroyWindow(g.hwnd[HWND_OPEN]);
+        }
+        
         UnregisterClass(wcex.lpszClassName, g.hInstance);
     }
 }
 #pragma endregion
 
-#pragma region load window events and controls
+#pragma region open window and control events
 
 // Window procedure for the load window. Handles the creation of controls, loading of saved readings, and user interactions within the load window.
 //=========================================================================================================================================================
-LRESULT CALLBACK wndproc_load(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK wndproc_open(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_CREATE:
-        create_load(hwnd);
+        create_open(hwnd);
         break;
 
     case WM_CLOSE:
@@ -863,18 +861,20 @@ LRESULT CALLBACK wndproc_load(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
-        case IDC_LOAD_LOAD:
-            cmd_load_item();
-            break;
-
-        case IDC_LOAD_CANCEL:
-            g.close = TRUE;
-            break;
-        } break;
-
-    case WM_NOTIFY:
-        notify_load(hwnd, lParam);
+            case IDC_LOAD_OPEN:   open_item(); break;
+            case IDC_LOAD_CANCEL: g.close = TRUE;  break;
+        } 
         break;
+
+    case WM_NOTIFY: {
+            auto lpHdr = (LPNMHDR)lParam;
+
+            if (lpHdr->code == NM_CLICK)
+                EnableWindow(g.hwnd[HWND_OPEN_OPEN], LIST_ITEM(g.hwnd[HWND_OPEN_LIST]) != -1);
+            else
+            if (lpHdr->code == NM_DBLCLK && LIST_ITEM(g.hwnd[HWND_OPEN_LIST]) != -1)
+                open_item();
+        } break;
 
     default:
         return DefWindowProcW(hwnd, message, wParam, lParam);
@@ -885,7 +885,7 @@ LRESULT CALLBACK wndproc_load(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 
 // Creates the controls for the load window and populates the list with saved readings from the ini file.
 //=======================================================================================================
-VOID create_load(HWND hwnd_load) {
+VOID create_open(HWND hwnd_open) {
     RECT        rcClient;
     RECT        rcWindow;
     HWND        hwnd;
@@ -893,17 +893,17 @@ VOID create_load(HWND hwnd_load) {
 
     GetWindowRect(g.hwnd[HWND_MAIN], &rcWindow);
 
-    SetWindowPos(hwnd_load, 0, rcWindow.left, rcWindow.top, RECT_CX(rcWindow), RECT_CY(rcWindow), SWP_NOZORDER);
-    GetClientRect(hwnd_load, &rcClient);
+    SetWindowPos(hwnd_open, 0, rcWindow.left, rcWindow.top, RECT_CX(rcWindow), RECT_CY(rcWindow), SWP_NOZORDER);
+    GetClientRect(hwnd_open, &rcClient);
     
-    g.hwnd[HWND_LOAD_OPEN]   = hwnd = CreateWindowExW(0, L"BUTTON", L"Open", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100 - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_load, (HMENU)IDC_LOAD_LOAD, 0, 0);
+    g.hwnd[HWND_OPEN_OPEN]   = hwnd = CreateWindowExW(0, L"BUTTON", L"Open", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100 - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_open, (HMENU)IDC_LOAD_OPEN, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_NAME], 0);
     EnableWindow(hwnd, FALSE);
 
-    g.hwnd[HWND_LOAD_CANCEL] = hwnd = CreateWindowExW(0, L"BUTTON", L"Cancel", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_load, (HMENU)IDC_LOAD_CANCEL, 0, 0);
+    g.hwnd[HWND_OPEN_CANCEL] = hwnd = CreateWindowExW(0, L"BUTTON", L"Cancel", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_open, (HMENU)IDC_LOAD_CANCEL, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_NAME], 0);
 
-    g.hwnd[HWND_LOAD_LIST]   = hwnd = CreateWindowExW(0, L"SysListView32", 0,  WS_VISIBLE|WS_CHILD|WS_BORDER|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS, 0, 0, RECT_CX(rcClient), rcClient.bottom - UI_PAD - 24 - UI_PAD, hwnd_load, (HMENU)HWND_LOAD_LIST, 0, 0);
+    g.hwnd[HWND_OPEN_LIST]   = hwnd = CreateWindowExW(0, L"SysListView32", 0,  WS_VISIBLE|WS_CHILD|WS_BORDER|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS, 0, 0, RECT_CX(rcClient), rcClient.bottom - UI_PAD - 24 - UI_PAD, hwnd_open, (HMENU)HWND_OPEN_LIST, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
     ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES|LVS_EX_LABELTIP);
 
@@ -962,7 +962,7 @@ VOID create_load(HWND hwnd_load) {
             GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, 0, wcsDate, _countof(wcsDate));
             GetTimeFormatW(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, 0, wcsTime, _countof(wcsTime));
 
-            calc_hex_nums(cast, hex, chg);
+            calc_hex_num(cast, hex, chg);
             swprintf_s(wcsHex, _countof(wcsHex), L"%d", hex);
 
             lvItem.mask    = LVIF_TEXT|LVIF_PARAM;
@@ -984,33 +984,39 @@ VOID create_load(HWND hwnd_load) {
         }
     }
 
-    size_columns();
+    UINT col_width;
+    UINT hdr_width;
+    UINT sum   = 0;
+    UINT width = 0;
+
+    for (UINT col = 0; col <= 4; col++) {
+        ListView_SetColumnWidth(hwnd, col, LVSCW_AUTOSIZE);
+        col_width = ListView_GetColumnWidth(hwnd, col);
+
+        ListView_SetColumnWidth(hwnd, col, LVSCW_AUTOSIZE_USEHEADER);
+        hdr_width = ListView_GetColumnWidth(hwnd, col); 
+
+        width = max(col_width, hdr_width);
+        sum  += width;
+
+        if (col == 4)
+            width += (rcClient.right - sum);
+
+        ListView_SetColumnWidth(hwnd, col, width);
+    }
 }
 
-// Handle notifications from the list view in the load window, enabling the "Open" button when an item is selected and loading the selected reading when it is double-clicked, by calling
-// the appropriate helper functions.
+// Open the selected reading from the list view in the load window.
 //=======================================================================================================================================================================================
-VOID notify_load(HWND hwnd, LPARAM lParam) {
-    auto lpHdr = (LPNMHDR)lParam;
-
-    if (lpHdr->code == NM_CLICK)
-        EnableWindow(g.hwnd[HWND_LOAD_OPEN], selected_item() != -1);
-    else
-    if (lpHdr->code == NM_DBLCLK && selected_item() != -1)
-        cmd_load_item();
-}
-
-// Load the currently selected reading from the list view in the load window, retrieve its seed and query text, calculate the corresponding hexagram and changing lines, update the 
-// global state and UI to reflect the loaded reading, and then close the load window.
-//=======================================================================================================================================================================================
-VOID cmd_load_item(VOID) {
+VOID open_item(VOID) {
+    HWND   hwnd = g.hwnd[HWND_OPEN_LIST];
     LVITEM lvi;
 
-    lvi.iItem    = selected_item();
+    lvi.iItem    = LIST_ITEM(hwnd);
     lvi.mask     = LVIF_PARAM;
     lvi.iSubItem = 0;
 
-    if (ListView_GetItem(g.hwnd[HWND_LOAD_LIST], &lvi) == TRUE) {
+    if (ListView_GetItem(hwnd, &lvi) == TRUE) {
         g.seed = (DWORD)lvi.lParam;
     
         lvi.pszText    = g.query;
@@ -1018,8 +1024,8 @@ VOID cmd_load_item(VOID) {
         lvi.iSubItem   = 4;
         lvi.mask       = LVIF_TEXT;
         
-        if (ListView_GetItem(g.hwnd[HWND_LOAD_LIST], &lvi) == TRUE) {
-            calc_hex_full();
+        if (ListView_GetItem(hwnd, &lvi) == TRUE) {
+            calc_hex_all();
 
             g.btn_enabled[CMD_CAST] = 0;
             g.btn_enabled[CMD_BACK] = 1;
@@ -1036,50 +1042,13 @@ VOID cmd_load_item(VOID) {
         }
     }
 }
-
-// Helper function to get the index of the currently selected item in the list view of the load window, or -1 if no item is selected, for use when enabling the "Open" button and loading
-// the selected reading.
-//=======================================================================================================================================================================================
-__inline INT selected_item(VOID) {
-    return ListView_GetNextItem(g.hwnd[HWND_LOAD_LIST], -1, LVNI_FOCUSED|LVNI_SELECTED);
-}
-
-// Adjust the column widths of the list view in the load window to fit their contents, and then expand the last column to fill any remaining space in the client area for a cleaner look.
-//=======================================================================================================================================================================================
-VOID size_columns(VOID) {
-    RECT rc;
-    UINT col_width;
-    UINT hdr_width;
-    UINT sum   = 0;
-    UINT width = 0;
-    HWND hwnd  = g.hwnd[HWND_LOAD_LIST];
-
-    GetClientRect(hwnd, &rc);
-
-    for (UINT col = 0; col <= 4; col++) {
-        ListView_SetColumnWidth(hwnd, col, LVSCW_AUTOSIZE);
-        col_width = ListView_GetColumnWidth(hwnd, col);
-
-        ListView_SetColumnWidth(hwnd, col, LVSCW_AUTOSIZE_USEHEADER);
-        hdr_width = ListView_GetColumnWidth(hwnd, col); 
-
-        width = max(col_width, hdr_width);
-        sum  += width;
-
-        if (col == 4)
-            width += (rc.right - sum);
-
-        ListView_SetColumnWidth(hwnd, col, width);
-    }
-}
 #pragma endregion
 
-#pragma region hexagram calc, text_retrieval and support functions
+#pragma region hexagram calc, text_retrieval and other support functions
 
-// Calculate the main and changing hexagram numbers, as well as the bitmasks for the hexagram lines and changing lines, from the seed value, and store them in the global 
-// structure for use when drawing and handling user interactions.
+// Calculate the main and changing hexagram numbers, as well as the bitmasks for the hexagram lines and changing lines.
 //=======================================================================================================================================================================================
-VOID calc_hex_full(VOID) {
+VOID calc_hex_all(VOID) {
     DWORD seed     = g.seed;
     BYTE  hex_bits = 0;
     BYTE  chg_bits = 0;
@@ -1106,10 +1075,9 @@ VOID calc_hex_full(VOID) {
     g.chg_num  = chg_bits ? bin_to_wen[hex_bits ^ chg_bits] : 0;
 }
 
-// A limited version of the above function that only calculates the main and change hexagram numbers from a given seed, without modifying any global state. For use when loading 
-// saved readings where we only have the seed and need to derive the hexagram numbers to display in the list.
+// A limited version of the above function that only calculates the main and change hexagram numbers from a given seed, without modifying any global state.
 //=======================================================================================================================================================================================
-VOID calc_hex_nums(DWORD seed, DWORD& hex, DWORD& chg) {
+VOID calc_hex_num(DWORD seed, DWORD& hex, DWORD& chg) {
     DWORD hex_bits = 0;
     DWORD chg_bits = 0;
 
@@ -1179,7 +1147,7 @@ VOID get_hex_text(VOID) {
     }
 }
 
-// Check if file exists
+// Return wether the file exists
 //======================================================================================================================================================================================
 BOOL file_exists(PCWSTR path) {
     DWORD dwAttrib = GetFileAttributesW(path);

@@ -26,7 +26,7 @@
 #define IDI_NUMBER_8                    121
 #define IDI_NUMBER_9                    122
 #define IDC_LOAD_CANCEL                 123
-#define IDC_LOAD_LOAD                   124
+#define IDC_LOAD_OPEN                   124
 
 
 // Next default values for new objects
