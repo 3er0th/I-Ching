@@ -19,6 +19,8 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 */
 
 //
+// Releases:
+// 
 // 20260311 1.0.0.1 - Initial release
 // 20260312 1.0.0.2 - Optimised radio button WM_PAINT
 // 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed.
@@ -245,7 +247,7 @@ LRESULT CALLBACK wndproc_open  (HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 
 #pragma region application entrypoint and window procedure
 
-// The entry point of the application. It checks for RDSEED support, loads resources, initializes the main window, and starts the message loop to handle user interactions.
+// The entry point of the application.
 //=================================================================================================================================================================================
 EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     if (!rdseed_support()) {
@@ -505,7 +507,7 @@ LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
         case HWND_CMD_SAVE:
             cmd_save();
-            g.btn_state[dwRefData] = CMD_NORMAL;
+            g.btn_state  [dwRefData] = CMD_NORMAL;
             g.btn_enabled[dwRefData] = 0;
             break;
 
@@ -696,7 +698,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
                 if (p) {
                     SelectObject(hdc, g.font[FONT_NAME]);
-                    TextOutW(hdc, 24, 0, p, (int)wcslen(p));
+                    TextOutW(hdc, 24, 0, p, (INT)wcslen(p));
                 }
             }
 
@@ -736,7 +738,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 VOID cmd_cast(VOID) {
     g.seed = get_seed();
 
-    SendMessageW(g.hwnd[HWND_QUERY], WM_GETTEXT, _countof(g.query), (LPARAM)g.query);
+    GetWindowTextW(g.hwnd[HWND_QUERY], g.query, _countof(g.query));
  
     g.hex_num = _wtoi(g.query);
 
@@ -956,7 +958,7 @@ VOID create_open(HWND hwnd_open) {
             DWORD      cast;
             DWORD      hex;
             DWORD      chg;
-            WCHAR      wcsHex[4];
+            WCHAR      wcsHex [ 4];
             WCHAR      wcsDate[20];
             WCHAR      wcsTime[20];
             PWSTR      p      = buf;
