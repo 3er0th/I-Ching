@@ -24,6 +24,7 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 // 20260311 1.0.0.1 - Initial release
 // 20260312 1.0.0.2 - Optimised radio button WM_PAINT
 // 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed.
+// 20260325 1.0.0.4 - Added the ability to delete saved readings
 //
  
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -103,46 +104,31 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 
 #define LIST_ITEM(hwnd) (ListView_GetNextItem((hwnd), -1, LVNI_SELECTED))
 
-enum e_hwnd {
-    HWND_MAIN,
-    HWND_CMD_CAST,
-    HWND_CMD_BACK,
-    HWND_CMD_SAVE,
-    HWND_CMD_OPEN,
-    HWND_QUERY,
-    HWND_TEXT,
-    HWND_OPT_HEXAGRAM,
-    HWND_OPT_HEX_LINE6,
-    HWND_OPT_HEX_LINE5,
-    HWND_OPT_HEX_LINE4,
-    HWND_OPT_HEX_LINE3,
-    HWND_OPT_HEX_LINE2,
-    HWND_OPT_HEX_LINE1,
-    HWND_OPT_CHANGING,
-    HWND_OPT_CHG_LINE6,
-    HWND_OPT_CHG_LINE5,
-    HWND_OPT_CHG_LINE4,
-    HWND_OPT_CHG_LINE3,
-    HWND_OPT_CHG_LINE2,
-    HWND_OPT_CHG_LINE1,
-    HWND_OPEN,
-    HWND_OPEN_LIST,
-    HWND_OPEN_OPEN,
-    HWND_OPEN_CANCEL,
-    HWND_COUNT,
-};
-
-enum e_rect {
-    RECT_HEX,
-    RECT_CHG,
-    RECT_NAME,
-    RECT_COUNT,
-};
-
-enum e_font {
-    FONT_NAME,
-    FONT_TEXT,
-    FONT_COUNT,
+enum e_ctrl_id {
+    IDC_CMD_CAST = 1,
+    IDC_CMD_BACK,
+    IDC_CMD_SAVE,
+    IDC_CMD_OPEN,
+    IDC_QUERY,
+    IDC_TEXT,
+    IDC_OPT_HEXAGRAM,
+    IDC_OPT_CHANGING,
+    IDC_OPT_HEX_LINE6,
+    IDC_OPT_HEX_LINE5,
+    IDC_OPT_HEX_LINE4,
+    IDC_OPT_HEX_LINE3,
+    IDC_OPT_HEX_LINE2,
+    IDC_OPT_HEX_LINE1,
+    IDC_OPT_CHG_LINE6,
+    IDC_OPT_CHG_LINE5,
+    IDC_OPT_CHG_LINE4,
+    IDC_OPT_CHG_LINE3,
+    IDC_OPT_CHG_LINE2,
+    IDC_OPT_CHG_LINE1,
+    IDC_OPEN_LIST,
+    IDC_OPEN_DELETE,
+    IDC_OPEN_CANCEL,
+    IDC_OPEN_OPEN,
 };
 
 enum e_icon {
@@ -171,7 +157,7 @@ enum e_icon {
     ICON_COUNT,
 };
 
-enum e_btn {
+enum e_button {
     CMD_CAST,
     CMD_BACK,
     CMD_SAVE,
@@ -179,7 +165,7 @@ enum e_btn {
     CMD_COUNT,
 };
 
-enum e_btn_state {
+enum e_button_state {
     CMD_NORMAL,
     CMD_OVER,
     CMD_DOWN,
@@ -192,31 +178,36 @@ enum e_btn_state {
 const BYTE bin_to_wen[64] = { 2, 24, 7, 19, 15, 36, 46, 11, 16, 51, 40, 54, 62, 55, 32, 34, 8, 3, 29, 60, 39, 63, 48, 5, 45, 17, 47, 58, 31, 49, 28, 43, 23, 27, 4, 41, 52, 22, 18, 26, 35, 21, 64, 38, 56, 30, 50, 14, 20, 42, 59, 61, 53, 37, 57, 9, 12, 25, 6, 10, 33, 13, 44, 1 };
 
 typedef struct {
-    HINSTANCE hInstance;              // Handle to the application instance, used for loading resources and creating windows
-    HWND      hwnd[HWND_COUNT];       // Main window, command buttons, query edit, text area, options, load dialog and its controls
-    HFONT     font[FONT_COUNT];       // Fonts for hexagram name and text
-    RECT      rect[RECT_COUNT];       // Rectangles for the hexagram, the changed hexagram and name areas
-    HICON     icon[ICON_COUNT];       // Icons for command buttons, options and line representations
-    BYTE      btn_enabled[CMD_COUNT]; // Button enabled or disabled
-    BYTE      btn_state[CMD_COUNT];   // State of each button (normal, hover or pressed)
-    BYTE      wen_to_bin[64];         // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
-    HCURSOR   hCurHelp;               // Help cursor for clickable options
-    FILETIME  ft;                     // Timestamp of the reading
-    BOOL      close;                  // Indicates when the current window message loop should bail
-    DWORD     seed;                   // The random seed obtained via RDSEED, used for casting hexagrams
-    DWORD     hex_bits;               // The binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
-    DWORD     chg_bits;               // The binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
-    UINT      hex_num;                // The number of the main hexagram (1-64)
-    UINT      chg_num;                // The number of the changed hexagram (1-64)
-    UINT      opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
-    UINT      opt_prev;               // The previously selected option
-    PWCHAR    lines[6];               // Pointers to the text for each of the moving/changing lines of the main hexagram
-    PWCHAR    hex_text;               // Pointer to the text for the main hexagram
-    PWCHAR    chg_text;               // Pointer to the text for the changed hexagram
-    WCHAR     query[260];             // The user's input, either a hexagram number or a text query
-    WCHAR     buf_hex[6 * 1024];      // Buffer for the hexagram text
-    WCHAR     buf_chg[6 * 1024];      // Buffer for the changed hexagram text
-    WCHAR     ini_file[MAX_PATH];     // Path to the 'I Ching.ini' file for the text and saved readings
+    HINSTANCE  hInstance;              // Handle to the application instance, used for loading resources and creating windows
+    HWND       hwnd_main;              // Main window
+    HWND       hwnd_open;              // Open window
+    HFONT      font_name;              // Fonts for hexagram name
+    HFONT      font_text;              // Fonts for hexagram text
+    RECT       rect_hexagram;          // Hexagram rectangle
+    RECT       rect_changing;          // Changed hexagram rectangle
+    RECT       rect_hex_name;          // Hexagram name rectangle
+    HICON      icon[ICON_COUNT];       // Icons for command buttons, options and line representations
+    BYTE       btn_enabled[CMD_COUNT]; // Button enabled or disabled
+    BYTE       btn_state[CMD_COUNT];   // State of each button (normal, hover or pressed)
+    BYTE       wen_to_bin[64];         // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
+    HCURSOR    help_cursor;            // Help cursor for clickable options
+    SYSTEMTIME st;                     // Timestamp of the reading
+    BOOL       close;                  // Indicates when the current window message loop should bail
+    DWORD      seed;                   // The random seed obtained via RDSEED, used for casting hexagrams
+    DWORD      hex_bits;               // The binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
+    DWORD      chg_bits;               // The binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
+    UINT       hex_num;                // The number of the main hexagram (1-64)
+    UINT       chg_num;                // The number of the changed hexagram (1-64)
+    UINT       opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
+    UINT       opt_prev;               // The previously selected option
+    INT        save_count;             // Number of saved readings
+    PWCHAR     lines[6];               // Pointers to the text for each of the moving/changing lines of the main hexagram
+    PWCHAR     hex_text;               // Pointer to the text for the main hexagram
+    PWCHAR     chg_text;               // Pointer to the text for the changed hexagram
+    WCHAR      query[260];             // The user's input, either a hexagram number or a text query
+    WCHAR      buf_hex[6 * 1024];      // Buffer for the hexagram text
+    WCHAR      buf_chg[6 * 1024];      // Buffer for the changed hexagram text
+    WCHAR      ini_file[MAX_PATH];     // Path to the 'I Ching.ini' file for the text and saved readings
 } Global_t;
 
 Global_t g;
@@ -226,23 +217,26 @@ EXTERN_C BOOL    rdseed_support(VOID);
 EXTERN_C DWORD   get_seed      (VOID);
 
 // forward declarations
-VOID             cmd_back      (VOID);
-VOID             cmd_cast      (VOID);
-VOID             cmd_open      (VOID);
-VOID             cmd_save      (VOID);
-VOID             create_open   (HWND hwnd);
-VOID             create_main   (HWND hwnd);
-VOID             calc_hex_all  (VOID);
-VOID             calc_hex_num  (DWORD seed, DWORD& hex, DWORD& chg);
-VOID             get_hex_text  (VOID);
-BOOL             file_exists   (PCWSTR path);
-VOID             open_item     (VOID);
-VOID             paint_main    (HWND hwnd);
-LRESULT CALLBACK subproc_cmd   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-LRESULT CALLBACK subproc_edit  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-LRESULT CALLBACK subproc_opt   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-LRESULT CALLBACK wndproc_main  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK wndproc_open  (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+VOID             calc_hex_all   (VOID);
+VOID             calc_hex_num   (DWORD seed, UINT& hex, UINT& chg);
+VOID             cmd_back       (VOID);
+VOID             cmd_cast       (VOID);
+VOID             cmd_open       (VOID);
+VOID             cmd_save       (VOID);
+VOID             create_open    (HWND hwnd_open);
+VOID             create_main    (HWND hwnd);
+HWND             ctrl_hwnd_main (UINT ctrl_id);
+HWND             ctrl_hwnd_open (UINT ctrl_id);
+VOID             get_hex_text   (VOID);
+BOOL             file_exists    (PCWSTR path);
+VOID             open_delete    (VOID);
+VOID             open_selected  (VOID);
+VOID             paint_main     (HWND hwnd);
+LRESULT CALLBACK subproc_cmd    (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+LRESULT CALLBACK subproc_edit   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+LRESULT CALLBACK subproc_opt    (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+LRESULT CALLBACK wndproc_main   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK wndproc_open   (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 #pragma endregion
 
 #pragma region application entrypoint and window procedure
@@ -262,7 +256,7 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
 
     if (!file_exists(g.ini_file)) {
         WCHAR msg[MAX_PATH + 180];
-
+            
         swprintf_s(msg, _countof(msg), L"Couldn't find the configuration file 'I Ching.ini' in the application directory.\n\nExpected path:\n%s\n\nMake sure the file exists and is in the correct location.", g.ini_file);
         MessageBoxW(0, msg, L"I Ching", MB_ICONERROR);
         ExitProcess(ERROR_FILE_NOT_FOUND);
@@ -271,13 +265,13 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     for (INT i = 0; i < 64; i++) // Create the reverse mapping from wen to bin
         g.wen_to_bin[bin_to_wen[i] - 1] = i;
 
-    for (INT ico_idx = ICON_CMD_CAST_SET, res_id = IDI_CMD_CAST; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
+    for (INT ico_idx = 0, res_id = IDI_CMD_CAST; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
         g.icon[ico_idx] = LoadIconW(g.hInstance, MAKEINTRESOURCEW(res_id));
 
-    g.opt_num  = HWND_OPT_HEXAGRAM;
-    g.hCurHelp = LoadCursorW(0, IDC_HELP);
+    g.opt_num  = IDC_OPT_HEXAGRAM;
+    g.help_cursor = LoadCursorW(0, IDC_HELP);
 
-    INITCOMMONCONTROLSEX icc = { sizeof(INITCOMMONCONTROLSEX), ICC_LISTVIEW_CLASSES|ICC_TAB_CLASSES|ICC_STANDARD_CLASSES };
+    INITCOMMONCONTROLSEX icc = { sizeof(INITCOMMONCONTROLSEX), ICC_LISTVIEW_CLASSES|ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icc);
 
     LoadLibraryW(L"RICHED20");
@@ -288,19 +282,19 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     wcex.hIcon         = g.icon[ICON_CMD_CAST_SET];
     wcex.hInstance     = g.hInstance;
     wcex.lpfnWndProc   = wndproc_main;
-    wcex.lpszClassName = L"I-Ching";
+    wcex.lpszClassName = L"I Ching";
 
     if (RegisterClassExW(&wcex)) {
         HWND hwnd;
 
-        g.hwnd[HWND_MAIN] = hwnd = CreateWindowExW(0, wcex.lpszClassName, wcex.lpszClassName, WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX, 0, 0, 0, 0, 0, 0, g.hInstance, 0);
+        g.hwnd_main = hwnd = CreateWindowW(wcex.lpszClassName, wcex.lpszClassName, WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX, 0, 0, 0, 0, 0, 0, g.hInstance, 0);
 
         if (hwnd) {
             BOOL dark = TRUE;
 
             DwmSetWindowAttribute(hwnd, DWMWINDOWATTRIBUTE::DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
             ShowWindow(hwnd, SW_NORMAL);
-            SetFocus(g.hwnd[HWND_QUERY]);
+            SetFocus( ctrl_hwnd_main(IDC_QUERY) );
 
             while (!g.close) {
                 MSG msg;
@@ -363,80 +357,80 @@ VOID create_main(HWND hwnd_main) {
     GetWindowRect(hwnd_main, &rcWindow);
     GetClientRect(hwnd_main, &rcClient);
 
-    INT cx = MAIN_CLIENT_CX +  RECT_CX(rcWindow) - RECT_CX(rcClient);
-    INT cy = MAIN_CLIENT_CY +  RECT_CY(rcWindow) - RECT_CY(rcClient);
+    INT cx = MAIN_CLIENT_CX +  RECT_CX(rcWindow)  - RECT_CX(rcClient);
+    INT cy = MAIN_CLIENT_CY +  RECT_CY(rcWindow)  - RECT_CY(rcClient);
     INT  x = mi.rcWork.left + (RECT_CX(mi.rcWork) - cx) / 2;
     INT  y = mi.rcWork.top  + (RECT_CY(mi.rcWork) - cy) / 3;
 
     SetWindowPos(hwnd_main, 0, x, y, cx, cy, SWP_NOZORDER);
 
-    g.font[FONT_NAME] = CreateFontW(-14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Segoe UI");
-    g.font[FONT_TEXT] = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Verdana");
+    g.font_name = CreateFontW(-14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Segoe UI");
+    g.font_text = CreateFontW(-13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Verdana");
  
     g.btn_enabled[CMD_CAST] = 1;
     g.btn_enabled[CMD_OPEN] = 1;
 
-    g.hwnd[HWND_CMD_CAST] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|SS_OWNERDRAW, MAIN_CMD_CAST_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_CAST, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_CAST, 0);
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|SS_OWNERDRAW, MAIN_CMD_CAST_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)IDC_CMD_CAST, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_cmd, IDC_CMD_CAST, 0);
 
-    g.hwnd[HWND_CMD_BACK] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_BACK_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_BACK, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_BACK, 1);
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_BACK_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)IDC_CMD_BACK, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_cmd, IDC_CMD_BACK, 1);
 
-    g.hwnd[HWND_CMD_SAVE] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_SAVE_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_SAVE, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_SAVE, 2);
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_SAVE_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)IDC_CMD_SAVE, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_cmd, IDC_CMD_SAVE, 2);
 
-    g.hwnd[HWND_CMD_OPEN] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_OPEN_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)HWND_CMD_OPEN, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_cmd, HWND_CMD_OPEN, 3);
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, MAIN_CMD_OPEN_X, MAIN_CMD_Y, CMD_CX, CMD_CY, hwnd_main, (HMENU)IDC_CMD_OPEN, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_cmd, IDC_CMD_OPEN, 3);
 
-    g.hwnd[HWND_QUERY]    = hwnd = CreateWindowExW(0, L"EDIT",   0, WS_CHILD|WS_BORDER|WS_VISIBLE|ES_NOHIDESEL, UI_PAD, EDIT_Y, EDIT_CX, EDIT_CY,  hwnd_main,  (HMENU)HWND_QUERY, 0, 0);
-    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
+    hwnd = CreateWindowW(L"EDIT",   0, WS_CHILD|WS_BORDER|WS_VISIBLE|ES_NOHIDESEL, UI_PAD, EDIT_Y, EDIT_CX, EDIT_CY,  hwnd_main,  (HMENU)IDC_QUERY, 0, 0);
+    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_text, 0);
     SendMessageW(hwnd, EM_SETCUEBANNER, TRUE, (LPARAM)L"Enter a query or hexagram number from 1 to 64");
-    SetWindowSubclass(hwnd, &subproc_edit, HWND_QUERY, 0);
+    SetWindowSubclass(hwnd, &subproc_edit, IDC_QUERY, 0);
 
-    g.hwnd[HWND_OPT_HEXAGRAM]  = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_NAME_X, HEX_NAME_Y, NAME_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEXAGRAM,  0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEXAGRAM,  0x010000);    
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_NAME_X, HEX_NAME_Y, NAME_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEXAGRAM,  0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEXAGRAM,  0x010000);    
 
-    g.hwnd[HWND_OPT_HEX_LINE6] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_6_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEX_LINE6, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEX_LINE6, 0x010600 | 1 << 5);                                                                                       
-                                                                                                                                            
-    g.hwnd[HWND_OPT_HEX_LINE5] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_5_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEX_LINE5, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEX_LINE5, 0x010500 | 1 << 4);                                                                                       
-                                                                                                                                            
-    g.hwnd[HWND_OPT_HEX_LINE4] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_4_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEX_LINE4, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEX_LINE4, 0x010400 | 1 << 3);                                                                                       
-                                                                                                                                            
-    g.hwnd[HWND_OPT_HEX_LINE3] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_3_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEX_LINE3, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEX_LINE3, 0x010300 | 1 << 2);                                                                                       
-                                                                                                                                            
-    g.hwnd[HWND_OPT_HEX_LINE2] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_2_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEX_LINE2, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEX_LINE2, 0x010200 | 1 << 1);                                                                                       
-                                                                                                                                            
-    g.hwnd[HWND_OPT_HEX_LINE1] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_1_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_HEX_LINE1, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_HEX_LINE1, 0x010100 | 1 << 0);                                                                                       
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHANGING]  = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_NAME_X, CHG_NAME_Y, NAME_CX, LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHANGING,  0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHANGING, 0);                                                                                            
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHG_LINE6] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_6_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE6, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE6, 0x000600);                                                                                            
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHG_LINE5] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_5_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE5, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE5, 0x000500);                                                                                            
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHG_LINE4] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_4_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE4, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE4, 0x000400);                                                                                           
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHG_LINE3] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_3_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE3, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE3, 0x000300);                                                                                           
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHG_LINE2] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_2_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE2, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE2, 0x000200);                                                                                           
-                                                                                                                                            
-    g.hwnd[HWND_OPT_CHG_LINE1] = hwnd = CreateWindowExW(0, L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_1_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)HWND_OPT_CHG_LINE1, 0, 0);
-    SetWindowSubclass(hwnd, &subproc_opt, HWND_OPT_CHG_LINE1, 0x000100);
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_NAME_X, CHG_NAME_Y, NAME_CX, LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHANGING,  0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHANGING, 0);
 
-    g.hwnd[HWND_TEXT] = hwnd = CreateWindowExW(0, RICHEDIT_CLASSW, 0, WS_CHILD|WS_VSCROLL|ES_MULTILINE|WS_VISIBLE, TEXT_X, TEXT_Y, TEXT_CX, TEXT_CY, hwnd_main, (HMENU)HWND_TEXT, 0, 0);
-    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_6_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEX_LINE6, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEX_LINE6, 0x010600 | 1 << 5);                                                                                       
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_5_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEX_LINE5, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEX_LINE5, 0x010500 | 1 << 4);                                                                                       
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_4_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEX_LINE4, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEX_LINE4, 0x010400 | 1 << 3);                                                                                       
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_3_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEX_LINE3, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEX_LINE3, 0x010300 | 1 << 2);                                                                                       
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_2_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEX_LINE2, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEX_LINE2, 0x010200 | 1 << 1);                                                                                       
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_LINE_X, LINE_1_Y,   LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEX_LINE1, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_HEX_LINE1, 0x010100 | 1 << 0);                                                                                       
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_6_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHG_LINE6, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHG_LINE6, 0x000600);                                                                                            
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_5_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHG_LINE5, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHG_LINE5, 0x000500);                                                                                            
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_4_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHG_LINE4, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHG_LINE4, 0x000400);                                                                                           
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_3_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHG_LINE3, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHG_LINE3, 0x000300);                                                                                           
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_2_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHG_LINE2, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHG_LINE2, 0x000200);                                                                                           
+                                                                                                                                            
+    hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, CHG_LINE_X,  LINE_1_Y,  LINE_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_CHG_LINE1, 0, 0);
+    SetWindowSubclass(hwnd, &subproc_opt, IDC_OPT_CHG_LINE1, 0x000100);
+
+    hwnd = CreateWindowW(RICHEDIT_CLASSW, 0, WS_CHILD|WS_VSCROLL|ES_MULTILINE|WS_VISIBLE, TEXT_X, TEXT_Y, TEXT_CX, TEXT_CY, hwnd_main, (HMENU)IDC_TEXT, 0, 0);
+    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_text, 0);
     SendMessageW(hwnd, EM_SETBKGNDCOLOR, 0, RGB(231, 208, 177));
     SendMessageW(hwnd, EM_SETTYPOGRAPHYOPTIONS, TO_ADVANCEDTYPOGRAPHY, TO_ADVANCEDTYPOGRAPHY);
     SendMessageW(hwnd, EM_SETREADONLY, TRUE, 0);
@@ -447,9 +441,9 @@ VOID create_main(HWND hwnd_main) {
     pf.wAlignment = PFA_FULL_INTERWORD;
     SendMessageW(hwnd, EM_SETPARAFORMAT, 0, (LPARAM)&pf);
 
-    g.rect[RECT_HEX]  = { HEX_X,      HEX_Y,      HEX_X + HEX_CX,           HEX_Y + HEX_CY  };
-    g.rect[RECT_CHG]  = { CHG_X,      CHG_Y,      CHG_X + CHG_CX,           CHG_Y + CHG_CY  };
-    g.rect[RECT_NAME] = { TXT_NAME_X, TXT_NAME_Y, TXT_NAME_X + TXT_NAME_CX, TXT_NAME_Y + TXT_NAME_CY };
+    g.rect_hexagram = { HEX_X,      HEX_Y,      HEX_X + HEX_CX,           HEX_Y + HEX_CY  };
+    g.rect_changing = { CHG_X,      CHG_Y,      CHG_X + CHG_CX,           CHG_Y + CHG_CY  };
+    g.rect_hex_name = { TXT_NAME_X, TXT_NAME_Y, TXT_NAME_X + TXT_NAME_CX, TXT_NAME_Y + TXT_NAME_CY };
 }
 
 // Handles the painting of the main window.
@@ -460,19 +454,19 @@ VOID paint_main(HWND hwnd) {
     HBRUSH      hBrush = CreateSolidBrush(RGB(116, 116, 116));
 
     // hexagram and change rectangles
-    FrameRect(hdc, &g.rect[RECT_HEX], hBrush);
-    FrameRect(hdc, &g.rect[RECT_CHG], hBrush);
+    FrameRect(hdc, &g.rect_hexagram, hBrush);
+    FrameRect(hdc, &g.rect_changing, hBrush);
 
     if (g.hex_num) {
         PWSTR p;
 
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, 0);
-        SelectObject(hdc, g.font[FONT_NAME]);
+        SelectObject(hdc, g.font_name);
 
-        p = (g.opt_num == HWND_OPT_CHANGING) ? g.buf_chg : g.buf_hex;
+        p = (g.opt_num == IDC_OPT_CHANGING) ? g.buf_chg : g.buf_hex;
         
-        TextOutW(hdc, g.rect[RECT_NAME].left, g.rect[RECT_NAME].top, p, (INT)wcslen(p));
+        TextOutW(hdc, g.rect_hex_name.left, g.rect_hex_name.top, p, (INT)wcslen(p));
     }
         
     DeleteObject(hBrush);
@@ -495,23 +489,23 @@ LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
     case WM_LBUTTONUP:
         switch (uIdSubclass) {
-        case HWND_CMD_CAST:
+        case IDC_CMD_CAST:
             cmd_cast();
             g.btn_state[dwRefData] = g.btn_enabled[dwRefData] ? CMD_OVER : CMD_NORMAL;
             break;
 
-        case HWND_CMD_BACK:
+        case IDC_CMD_BACK:
             cmd_back();
             g.btn_state[dwRefData] = g.btn_enabled[dwRefData] ? CMD_OVER : CMD_NORMAL;
             break;
 
-        case HWND_CMD_SAVE:
+        case IDC_CMD_SAVE:
             cmd_save();
             g.btn_state  [dwRefData] = CMD_NORMAL;
             g.btn_enabled[dwRefData] = 0;
             break;
 
-        case HWND_CMD_OPEN:
+        case IDC_CMD_OPEN:
             cmd_open();
             break;
         }
@@ -608,10 +602,10 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
     BOOL button;
 
-    if (uIdSubclass == HWND_OPT_HEXAGRAM)
+    if (uIdSubclass == IDC_OPT_HEXAGRAM)
         button = TRUE;
     else
-    if (uIdSubclass == HWND_OPT_CHANGING)
+    if (uIdSubclass == IDC_OPT_CHANGING)
         button = g.chg_bits;
     else
         button = dwRefData & g.chg_bits;
@@ -631,40 +625,39 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             g.opt_num  = (BYTE)uIdSubclass;
 
             switch (uIdSubclass) {
-            case HWND_OPT_HEXAGRAM: 
+            case IDC_OPT_HEXAGRAM: 
                 p = g.hex_text;
                 break;
 
-            case HWND_OPT_CHANGING: 
+            case IDC_OPT_CHANGING: 
                 p = g.chg_text;
                 break;
 
-            case HWND_OPT_HEX_LINE6:
-            case HWND_OPT_HEX_LINE5:
-            case HWND_OPT_HEX_LINE4:
-            case HWND_OPT_HEX_LINE3:
-            case HWND_OPT_HEX_LINE2:
-            case HWND_OPT_HEX_LINE1:
+            case IDC_OPT_HEX_LINE6:
+            case IDC_OPT_HEX_LINE5:
+            case IDC_OPT_HEX_LINE4:
+            case IDC_OPT_HEX_LINE3:
+            case IDC_OPT_HEX_LINE2:
+            case IDC_OPT_HEX_LINE1:
                 p = g.lines[line - 1];
                 break;
             }
 
-            SetWindowTextW(g.hwnd[HWND_TEXT], p);
+            SetWindowTextW( ctrl_hwnd_main(IDC_TEXT), p);
 
             InvalidateRect(hwnd, 0, FALSE);
-            InvalidateRect(g.hwnd[g.opt_prev], 0, FALSE);
+            InvalidateRect(ctrl_hwnd_main(g.opt_prev), 0, FALSE);
 
-            if (g.opt_prev == HWND_OPT_CHANGING || g.opt_num == HWND_OPT_CHANGING)   
-                InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], TRUE);
-        }
-        break;
+            if (g.opt_prev == IDC_OPT_CHANGING || g.opt_num == IDC_OPT_CHANGING)   
+                InvalidateRect(g.hwnd_main, &g.rect_hex_name, TRUE);
+        } break;
 
     case WM_MOUSEMOVE:
         if (g.opt_num != uIdSubclass) {
             TRACKMOUSEEVENT tme = { sizeof(TRACKMOUSEEVENT), TME_LEAVE, hwnd, 0 };
 
             TrackMouseEvent(&tme);
-            SetCursor(g.hCurHelp);
+            SetCursor(g.help_cursor);
         } break;
 
     case WM_MOUSELEAVE:
@@ -687,17 +680,17 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                     DrawIconEx(hdc, 0, 0, g.icon[ICON_OPT_OFF], 16, 16, 0, 0, DI_NORMAL);
 
                 switch (uIdSubclass) {
-                case HWND_OPT_HEXAGRAM:
+                case IDC_OPT_HEXAGRAM:
                     p = g.buf_hex;
                     break;
 
-                case HWND_OPT_CHANGING:
+                case IDC_OPT_CHANGING:
                     p = g.buf_chg;
                     break;
                 }
 
                 if (p) {
-                    SelectObject(hdc, g.font[FONT_NAME]);
+                    SelectObject(hdc, g.font_name);
                     TextOutW(hdc, 24, 0, p, (INT)wcslen(p));
                 }
             }
@@ -738,7 +731,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 VOID cmd_cast(VOID) {
     g.seed = get_seed();
 
-    GetWindowTextW(g.hwnd[HWND_QUERY], g.query, _countof(g.query));
+    GetWindowTextW( ctrl_hwnd_main(IDC_QUERY), g.query, _countof(g.query));
  
     g.hex_num = _wtoi(g.query);
 
@@ -748,10 +741,10 @@ VOID cmd_cast(VOID) {
         g.chg_bits = 0b111111;
         g.chg_num  = bin_to_wen[g.hex_bits ^ g.chg_bits];
     } else {
-        GetSystemTimeAsFileTime(&g.ft);
+        GetLocalTime(&g.st);
         calc_hex_all();
+        InvalidateRect(GetDlgItem(g.hwnd_main, IDC_CMD_SAVE), 0, FALSE);
         g.btn_enabled[CMD_SAVE] = 1;
-        InvalidateRect(g.hwnd[HWND_CMD_SAVE], 0, FALSE);
     }
 
     g.btn_enabled[CMD_CAST] = 0;
@@ -759,13 +752,14 @@ VOID cmd_cast(VOID) {
 
     get_hex_text();
 
-    SetWindowTextW(g.hwnd[HWND_TEXT], g.hex_text);
-    SendMessageW(g.hwnd[HWND_QUERY], EM_SETREADONLY, TRUE, 0);
-    SetFocus(g.hwnd[HWND_MAIN]);
+    SetWindowTextW( ctrl_hwnd_main(IDC_TEXT), g.hex_text);
+    SendMessageW(   ctrl_hwnd_main(IDC_QUERY), EM_SETREADONLY, TRUE, 0);
     
-    InvalidateRect(g.hwnd[HWND_CMD_CAST], 0, FALSE);
-    InvalidateRect(g.hwnd[HWND_CMD_BACK], 0, FALSE);
-    InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], FALSE);
+    InvalidateRect( ctrl_hwnd_main(IDC_CMD_CAST), 0, FALSE);
+    InvalidateRect( ctrl_hwnd_main(IDC_CMD_BACK), 0, FALSE);
+    InvalidateRect(g.hwnd_main, &g.rect_hex_name, FALSE);
+
+    SetFocus(g.hwnd_main);
 }
 
 // Resets the application state to allow for a new reading.
@@ -776,84 +770,83 @@ VOID cmd_back(VOID) {
     g.chg_bits = 0;
     g.chg_num  = 0;
     g.opt_prev = 0;
-    g.opt_num  = HWND_OPT_HEXAGRAM;
+    g.opt_num  = IDC_OPT_HEXAGRAM;
 
     g.btn_enabled[CMD_CAST] = 1;
     g.btn_enabled[CMD_BACK] = 0;
     g.btn_enabled[CMD_SAVE] = 0;
 
-    SetWindowTextW(g.hwnd[HWND_QUERY], 0);
-    SendMessageW(g.hwnd[HWND_QUERY], EM_SETREADONLY, FALSE, 0);
-    SetFocus(g.hwnd[HWND_QUERY]);
+    HWND hwnd = ctrl_hwnd_main(IDC_QUERY);
+    SetWindowTextW(hwnd, 0);
+    SendMessageW(hwnd, EM_SETREADONLY, FALSE, 0);
 
-    SetWindowTextW(g.hwnd[HWND_TEXT], 0);
-    UpdateWindow(g.hwnd[HWND_TEXT]);
+    SetWindowTextW( ctrl_hwnd_main(IDC_TEXT), 0);
 
-    InvalidateRect(g.hwnd[HWND_CMD_CAST], 0, FALSE);
-    InvalidateRect(g.hwnd[HWND_CMD_BACK], 0, FALSE);
-    InvalidateRect(g.hwnd[HWND_CMD_SAVE], 0, FALSE);
+    InvalidateRect( ctrl_hwnd_main(IDC_CMD_CAST), 0, FALSE);
+    InvalidateRect( ctrl_hwnd_main(IDC_CMD_BACK), 0, FALSE);
+    InvalidateRect( ctrl_hwnd_main(IDC_CMD_SAVE), 0, FALSE);
 
-    InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_HEX],  TRUE);
-    InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_CHG],  TRUE);
-    InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], TRUE);
+    InvalidateRect(g.hwnd_main, &g.rect_hexagram,  TRUE);
+    InvalidateRect(g.hwnd_main, &g.rect_changing,  TRUE);
+    InvalidateRect(g.hwnd_main, &g.rect_hex_name, TRUE);
+
+    UpdateWindow( ctrl_hwnd_main(IDC_TEXT));
+    SetFocus(hwnd);
 }
 
 // Saves the reading to the ini file.
 //=========================================================================================================================================================
 VOID cmd_save(VOID) {
-    WCHAR key[10];
-    WCHAR buf[400];
-    WCHAR query[300];
+    WCHAR key[8];
+    WCHAR buf[32 + _countof(g.query)];
     INT   count;
 
-    GetWindowTextW(g.hwnd[HWND_QUERY], query, _countof(query));
+    swprintf_s(buf, _countof(buf), L"%d-%02d-%02d %02d:%02d:%02d 0x%05X %s", g.st.wYear, g.st.wMonth, g.st.wDay, g.st.wHour, g.st.wMinute, g.st.wSecond, g.seed, g.query);
 
-    swprintf_s(buf, _countof(buf), L"0x%08X 0x%08X 0x%05X %s", g.ft.dwHighDateTime, g.ft.dwLowDateTime, g.seed, query);
-
-    count = GetPrivateProfileIntW(L"Saved", L"SaveCount", 0, g.ini_file);
+    count = GetPrivateProfileIntW(L"Saved", L"Count", 0, g.ini_file);
     count++;
 
     swprintf_s(key, _countof(key), L"%d", count);
 
-    if (WritePrivateProfileStringW(L"Saved", L"SaveCount", key, g.ini_file))
+    if (WritePrivateProfileStringW(L"Saved", L"Count", key, g.ini_file))
         WritePrivateProfileStringW(L"Saved", key, buf, g.ini_file);
     else
-        MessageBoxW(g.hwnd[HWND_MAIN], L"Failed to save the reading. Make sure the application has permission to write to its directory.", L"Error", MB_ICONERROR);
+        MessageBoxW(g.hwnd_main, L"Failed to save the reading. Make sure the application has permission to write to its directory.", L"Error", MB_ICONERROR);
 }
 
 // Creates and manages the load window, which allows the user to view and open previously saved readings.
 //=========================================================================================================================================================
 VOID cmd_open(VOID) {
+    HWND        hwnd;
     WNDCLASSEXW wcex   = { sizeof(wcex) };
+
     wcex.hCursor       = LoadCursorW(0, (LPCWSTR)IDC_ARROW);
     wcex.hIcon         = g.icon[ICON_CMD_OPEN_SET];
     wcex.hInstance     = g.hInstance;
     wcex.lpfnWndProc   = wndproc_open;
-    wcex.lpszClassName = L"I-CHING_OPEN";
+    wcex.lpszClassName = L"I CHING OPEN";
 
-    if (RegisterClassExW(&wcex)) {
-        g.hwnd[HWND_OPEN] = CreateWindowExW(0, wcex.lpszClassName, L"Saved readings", WS_CAPTION|WS_SYSMENU, 0, 0, 0, 0, g.hwnd[HWND_MAIN], 0, g.hInstance, 0);
+    RegisterClassExW(&wcex);
 
-        if (g.hwnd[HWND_OPEN]) {
-            EnableWindow(g.hwnd[HWND_MAIN], FALSE);
-            ShowWindow(g.hwnd[HWND_OPEN], SW_NORMAL);
-            
-            while (!g.close) {
-                MSG msg;
+    g.hwnd_open = hwnd = CreateWindowW(wcex.lpszClassName, L"Saved readings", WS_CAPTION|WS_SYSMENU, 0, 0, 0, 0, g.hwnd_main, 0, g.hInstance, 0);
 
-                if (GetMessageW(&msg, g.hwnd[HWND_OPEN], 0, 0)) {
-                    TranslateMessage(&msg);
-                    DispatchMessageW(&msg);
-                }
+    if (hwnd) {
+        EnableWindow(g.hwnd_main, FALSE);
+        ShowWindow(hwnd, SW_NORMAL);
+         
+        while (!g.close) {
+            MSG msg;
+
+            if (GetMessageW(&msg, hwnd, 0, 0)) {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
             }
-
-            g.close = FALSE;
-
-            EnableWindow(g.hwnd[HWND_MAIN], TRUE);
-            DestroyWindow(g.hwnd[HWND_OPEN]);
         }
-        
-        UnregisterClass(wcex.lpszClassName, g.hInstance);
+
+        g.close = FALSE;
+
+        EnableWindow(g.hwnd_main, TRUE);
+        DestroyWindow(hwnd);
     }
 }
 #pragma endregion
@@ -874,19 +867,30 @@ LRESULT CALLBACK wndproc_open(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
-            case IDC_LOAD_OPEN:   open_item();     break;
-            case IDC_LOAD_CANCEL: g.close = TRUE;  break;
-        } 
-        break;
+        case IDC_OPEN_DELETE:
+            open_delete();
+            break;
+
+        case IDC_OPEN_OPEN:   
+            open_selected();     
+            break;
+
+        case IDC_OPEN_CANCEL: 
+            g.close = TRUE;  
+            break;
+        } break;
 
     case WM_NOTIFY: {
             auto lpHdr = (LPNMHDR)lParam;
 
-            if (lpHdr->code == NM_CLICK)
-                EnableWindow(g.hwnd[HWND_OPEN_OPEN], LIST_ITEM(g.hwnd[HWND_OPEN_LIST]) != -1);
-            else
-            if (lpHdr->code == NM_DBLCLK && LIST_ITEM(g.hwnd[HWND_OPEN_LIST]) != -1)
-                open_item();
+            if (lpHdr->code == NM_CLICK) {
+                BOOL enabled = LIST_ITEM(ctrl_hwnd_open(IDC_OPEN_LIST)) != -1;
+
+                EnableWindow(ctrl_hwnd_open(IDC_OPEN_DELETE), enabled);
+                EnableWindow(ctrl_hwnd_open(IDC_OPEN_OPEN),   enabled);
+            } else
+            if (lpHdr->code == NM_DBLCLK)
+                open_selected();
         } break;
 
     default:
@@ -904,20 +908,26 @@ VOID create_open(HWND hwnd_open) {
     HWND        hwnd;
     LV_COLUMNW	lvCol = {};
 
-    GetWindowRect(g.hwnd[HWND_MAIN], &rcWindow);
+    GetWindowRect(g.hwnd_main, &rcWindow);
 
     SetWindowPos(hwnd_open, 0, rcWindow.left, rcWindow.top, RECT_CX(rcWindow), RECT_CY(rcWindow), SWP_NOZORDER);
     GetClientRect(hwnd_open, &rcClient);
-    
-    g.hwnd[HWND_OPEN_OPEN]   = hwnd = CreateWindowExW(0, L"BUTTON", L"Open", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100 - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_open, (HMENU)IDC_LOAD_OPEN, 0, 0);
-    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_NAME], 0);
+
+    INT btn_top = rcClient.bottom - UI_PAD - 24;
+
+    hwnd = CreateWindowW(L"BUTTON", L"Delete", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, UI_PAD, btn_top, 100, 24, hwnd_open, (HMENU)IDC_OPEN_DELETE, 0, 0);
+    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_name, 0);
     EnableWindow(hwnd, FALSE);
 
-    g.hwnd[HWND_OPEN_CANCEL] = hwnd = CreateWindowExW(0, L"BUTTON", L"Cancel", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100, rcClient.bottom - UI_PAD - 24, 100, 24, hwnd_open, (HMENU)IDC_LOAD_CANCEL, 0, 0);
-    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_NAME], 0);
+    hwnd = CreateWindowW(L"BUTTON", L"Open",   WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100 - UI_PAD - 100, btn_top, 100, 24, hwnd_open, (HMENU)IDC_OPEN_OPEN, 0, 0);
+    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_name, 0);
+    EnableWindow(hwnd, FALSE);
 
-    g.hwnd[HWND_OPEN_LIST]   = hwnd = CreateWindowExW(0, L"SysListView32", 0,  WS_VISIBLE|WS_CHILD|WS_BORDER|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS, 0, 0, RECT_CX(rcClient), rcClient.bottom - UI_PAD - 24 - UI_PAD, hwnd_open, (HMENU)HWND_OPEN_LIST, 0, 0);
-    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font[FONT_TEXT], 0);
+    hwnd = CreateWindowW(L"BUTTON", L"Cancel", WS_CHILD|WS_VISIBLE|BS_FLAT|BS_PUSHBUTTON, RECT_CX(rcClient) - UI_PAD - 100, btn_top, 100, 24, hwnd_open, (HMENU)IDC_OPEN_CANCEL, 0, 0);
+    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_name, 0);
+
+    hwnd = CreateWindowW(L"SysListView32", 0,  WS_VISIBLE|WS_CHILD|WS_BORDER|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS, 0, 0, RECT_CX(rcClient), rcClient.bottom - UI_PAD - 24 - UI_PAD, hwnd_open, (HMENU)IDC_OPEN_LIST, 0, 0);
+    SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_text, 0);
     ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES|LVS_EX_LABELTIP);
 
     lvCol.mask     = LVCF_FMT|LVCF_WIDTH|LVCF_TEXT|LVCF_SUBITEM;
@@ -944,9 +954,9 @@ VOID create_open(HWND hwnd_open) {
     lvCol.iSubItem = 4;
     ListView_InsertColumn(hwnd, lvCol.iSubItem, &lvCol);
 
-    INT save_count = GetPrivateProfileIntW(L"Saved", L"SaveCount", 0, g.ini_file);
+    g.save_count = GetPrivateProfileIntW(L"Saved", L"Count", 0, g.ini_file);
 
-    for (INT i = 1; i <= save_count; i++) {
+    for (INT i = 1; i <= g.save_count; i++) {
         WCHAR key[10];
         WCHAR buf[400];
 
@@ -955,42 +965,40 @@ VOID create_open(HWND hwnd_open) {
         swprintf_s(key, _countof(key), L"%d", i);
 
         if (GetPrivateProfileStringW(L"Saved", key, 0, buf, _countof(buf), g.ini_file)) {
-            DWORD      cast;
-            DWORD      hex;
-            DWORD      chg;
-            WCHAR      wcsHex [ 4];
-            WCHAR      wcsDate[20];
-            WCHAR      wcsTime[20];
-            PWSTR      p      = buf;
-            SYSTEMTIME st     = {};
-            FILETIME   ft     = {};
-            LV_ITEMW   lvItem = {};
+            DWORD    seed;
+            UINT     hexagram;
+            UINT     changing;
+            WCHAR    wcsHex[4];
+            PWSTR    pTime;
+            PWSTR    p      = buf;
+            LV_ITEMW lvItem = {};
 
-            ft.dwHighDateTime = wcstoul(  p, &p, 16);
-            ft.dwLowDateTime  = wcstoul(++p, &p, 16);
-            cast              = wcstoul(++p, &p, 16);
+            p = wcschr(buf, L' ');
+            p[0] = 0;
+
+            pTime = p + 1;
+            p = wcschr(pTime, L' ');
+            p[0] = 0;
+
+            seed = wcstoul(++p, &p, 16);
             p++;
 
-            FileTimeToSystemTime(&ft, &st);
-            GetDateFormatW(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, 0, wcsDate, _countof(wcsDate));
-            GetTimeFormatW(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, 0, wcsTime, _countof(wcsTime));
-
-            calc_hex_num(cast, hex, chg);
-            swprintf_s(wcsHex, _countof(wcsHex), L"%d", hex);
+            calc_hex_num(seed, hexagram, changing);
+            swprintf_s(wcsHex, _countof(wcsHex), L"%d", hexagram);
 
             lvItem.mask    = LVIF_TEXT|LVIF_PARAM;
-            lvItem.lParam  = cast;
-            lvItem.pszText = wcsDate;
+            lvItem.lParam  = seed;
+            lvItem.pszText = buf;
 
-            ListView_InsertItem(hwnd, &lvItem);
-            ListView_SetItemText(hwnd, lvItem.iItem, 1, wcsTime);
+            ListView_InsertItem (hwnd, &lvItem);
+            ListView_SetItemText(hwnd, lvItem.iItem, 1, pTime);
             ListView_SetItemText(hwnd, lvItem.iItem, 2, wcsHex);
 
-            if (chg) {
-                WCHAR wcsChg[4];
+            if (changing) {
+                WCHAR wcsChanging[4];
 
-                swprintf_s(wcsChg, _countof(wcsChg), L"%d", chg);
-                ListView_SetItemText(hwnd, lvItem.iItem, 3, wcsChg);
+                swprintf_s(wcsChanging, _countof(wcsChanging), L"%d", changing);
+                ListView_SetItemText(hwnd, lvItem.iItem, 3, wcsChanging);
             }
 
             ListView_SetItemText(hwnd, lvItem.iItem, 4, p);
@@ -1021,8 +1029,8 @@ VOID create_open(HWND hwnd_open) {
 
 // Open the selected reading from the list view in the load window.
 //=======================================================================================================================================================================================
-VOID open_item(VOID) {
-    HWND   hwnd = g.hwnd[HWND_OPEN_LIST];
+VOID open_selected(VOID) {
+    HWND   hwnd = ctrl_hwnd_open(IDC_OPEN_LIST);
     LVITEM lvi;
 
     lvi.iItem    = LIST_ITEM(hwnd);
@@ -1038,8 +1046,7 @@ VOID open_item(VOID) {
         lvi.mask       = LVIF_TEXT;
         
         if (ListView_GetItem(hwnd, &lvi) == TRUE) {
-            RECT rc;
-            INT  old_num = g.chg_num;
+            INT old_num = g.chg_num;
 
             calc_hex_all();
 
@@ -1049,33 +1056,79 @@ VOID open_item(VOID) {
 
             get_hex_text();
 
-            SetWindowTextW(g.hwnd[HWND_QUERY], g.query);
-            SendMessageW(g.hwnd[HWND_QUERY], EM_SETREADONLY, TRUE, 0);
+            HWND hwnd_query = ctrl_hwnd_main(IDC_QUERY); 
+            SetWindowTextW(hwnd_query, g.query);
+            SendMessageW(hwnd_query, EM_SETREADONLY, TRUE, 0);
 
-            SetWindowTextW(g.hwnd[HWND_TEXT], g.hex_text);
+            SetWindowTextW( ctrl_hwnd_main(IDC_TEXT), g.hex_text);
             
-            InvalidateRect(g.hwnd[HWND_CMD_CAST], 0, FALSE);
-            InvalidateRect(g.hwnd[HWND_CMD_BACK], 0, FALSE);
-            InvalidateRect(g.hwnd[HWND_CMD_SAVE], 0, FALSE);
+            InvalidateRect( ctrl_hwnd_main(IDC_CMD_CAST), 0, FALSE);
+            InvalidateRect( ctrl_hwnd_main(IDC_CMD_BACK), 0, FALSE);
+            InvalidateRect( ctrl_hwnd_main(IDC_CMD_SAVE), 0, FALSE);
 
-            GetWindowRect(g.hwnd[HWND_OPT_HEXAGRAM], &rc);
-            InvalidateRect(g.hwnd[HWND_MAIN], &rc, FALSE);
+            InvalidateRect(g.hwnd_main, &g.rect_hexagram, FALSE);
+            InvalidateRect(g.hwnd_main, &g.rect_changing, FALSE);
+            InvalidateRect(g.hwnd_main, &g.rect_hex_name, FALSE);
 
-            for (UINT i = HWND_OPT_HEX_LINE6; i <= HWND_OPT_HEX_LINE1; i++)
-                InvalidateRect(g.hwnd[i], 0, FALSE);
-
-            if (old_num) {
-                GetWindowRect(g.hwnd[HWND_OPT_CHANGING], &rc);
-                InvalidateRect(g.hwnd[HWND_MAIN], &rc, FALSE);
-
-                for (UINT i =  HWND_OPT_CHG_LINE6; i <= HWND_OPT_CHG_LINE1; i++)
-                    InvalidateRect(g.hwnd[i], 0, FALSE);
-            }
-
-            InvalidateRect(g.hwnd[HWND_MAIN], &g.rect[RECT_NAME], TRUE);
             g.close = TRUE;
         }
     }
+}
+
+VOID open_delete(VOID) {
+    WCHAR  key[8];
+    LVITEM lvi;
+    HWND   hwnd  = ctrl_hwnd_open(IDC_OPEN_LIST);
+
+    ListView_DeleteItem(hwnd, LIST_ITEM(hwnd));
+    g.save_count--;
+    
+    for (INT i = g.save_count - 1, j = 1; i >= 0; i--, j++) {
+        WCHAR wcsDate[20];
+
+        lvi.iItem = i;
+        lvi.mask = LVIF_PARAM | LVIF_TEXT;
+        lvi.pszText = wcsDate;
+        lvi.cchTextMax = _countof(wcsDate);
+        lvi.iSubItem = 0;
+
+        if (ListView_GetItem(hwnd, &lvi) == TRUE) {
+            WCHAR wcsTime[20];
+            DWORD seed = (DWORD)lvi.lParam;
+
+            lvi.pszText = wcsTime;
+            lvi.cchTextMax = _countof(wcsTime);
+            lvi.iSubItem = 1;
+            lvi.mask = LVIF_TEXT;
+
+            if (ListView_GetItem(hwnd, &lvi) == TRUE) {
+                WCHAR wcsQuery[_countof(g.query)];
+
+                lvi.pszText = wcsQuery;
+                lvi.cchTextMax = _countof(wcsQuery);
+                lvi.iSubItem = 4;
+                lvi.mask = LVIF_TEXT;
+
+                if (ListView_GetItem(hwnd, &lvi) == TRUE) {
+                    WCHAR buf[32 + _countof(g.query)];
+
+                    swprintf_s(key, _countof(key), L"%d", j);
+                    swprintf_s(buf, _countof(buf), L"%s %s 0x%05X %s", wcsDate, wcsTime, seed, wcsQuery);
+
+                    WritePrivateProfileStringW(L"Saved", key, buf, g.ini_file);
+                }
+            }
+        }
+    }
+
+    swprintf_s(key, _countof(key), L"%d", g.save_count + 1);
+    WritePrivateProfileStringW(L"Saved", key, L"", g.ini_file);
+
+    swprintf_s(key, _countof(key), L"%d", g.save_count);
+    WritePrivateProfileStringW(L"Saved", L"Count", key, g.ini_file);
+
+    EnableWindow(ctrl_hwnd_open(IDC_OPEN_DELETE), FALSE);
+    EnableWindow(ctrl_hwnd_open(IDC_OPEN_OPEN),   FALSE);
 }
 #pragma endregion
 
@@ -1112,24 +1165,26 @@ VOID calc_hex_all(VOID) {
 
 // A limited version of the above function that only calculates the main and change hexagram numbers from a given seed, without modifying any global state. Used in the open list.
 //=======================================================================================================================================================================================
-VOID calc_hex_num(DWORD seed, DWORD& hex, DWORD& chg) {
+VOID calc_hex_num(DWORD seed, UINT& hex, UINT& chg) {
     DWORD hex_bits = 0;
     DWORD chg_bits = 0;
 
-    for (UINT i = 0, v = seed, bit = 1; i < 6; i++, bit <<= 1) {
-        switch (v & 0b111) {
+    for (UINT i = 0, bit = 1; i < 6; i++, bit <<= 1) {
+        switch (seed & 0b111) {
         case 3:
             chg_bits |= bit;
             break;
 
         case 7:
             chg_bits |= bit;
-        case 4: case 5: case 6:
+        case 4: 
+        case 5: 
+        case 6:
             hex_bits |= bit;
             break;
         }
 
-        v >>= 3;
+        seed >>= 3;
     }
 
     hex = bin_to_wen[hex_bits];
@@ -1139,7 +1194,7 @@ VOID calc_hex_num(DWORD seed, DWORD& hex, DWORD& chg) {
 // Retrieve the text for the main and changed hexagram from the INI file, store pointers to the main hexagram's moving lines. 
 //=======================================================================================================================================================================================
 VOID get_hex_text(VOID) {
-    WCHAR section[32];
+    WCHAR section[16];
 
     swprintf_s(section, _countof(section), L"Hexagram_%d", g.hex_num);
 
@@ -1172,7 +1227,7 @@ VOID get_hex_text(VOID) {
                 p += wcslen(p) + 1;
                 g.chg_text = p;
 
-                // convert any "$$" sequences in the text to double line breaks for proper formatting in the rich text control, since the INI file cannot contain actual line break characters
+                // convert any "$$" sequences in the text to double line breaks
                 while (p = wcsstr(p, L"$$")) {
                     p[0] = L'\r';
                     p[1] = L'\r';
@@ -1180,6 +1235,18 @@ VOID get_hex_text(VOID) {
             }
         }
     }
+}
+
+// Return the child window handle of the main window
+//======================================================================================================================================================================================
+HWND ctrl_hwnd_main(UINT ctrl_id) {
+    return GetDlgItem(g.hwnd_main, ctrl_id);
+}
+
+// Return the child window handle of the open window
+//======================================================================================================================================================================================
+HWND ctrl_hwnd_open(UINT ctrl_id) {
+    return GetDlgItem(g.hwnd_open, ctrl_id);
 }
 
 // Return wether the file exists
