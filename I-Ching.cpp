@@ -25,9 +25,11 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 // 20260312 1.0.0.2 - Optimised radio button WM_PAINT
 // 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed.
 // 20260325 1.0.0.4 - Added the ability to delete saved readings
+// 20260403 1.0.0.5 - DPI awreness changes
 //
  
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#pragma comment(linker, "/section:.text,RWE /merge:.data=.text /merge:.rdata=.text")
 
 #define _NO_CRT_STDIO_INLINE
 
@@ -42,53 +44,55 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 
 #pragma region defines consts etc
 
-#define LIST_ITEM(hwnd) (ListView_GetNextItem((hwnd), -1, LVNI_SELECTED))
-#define RECT_CX(rc)     ((rc).right  - (rc).left)
-#define RECT_CY(rc)     ((rc).bottom - (rc).top)
-#define MAIN_CLIENT_CX	(600)
-#define MAIN_CLIENT_CY  (918)
-#define UI_PAD          (12)
-#define CMD_CX          (64)
-#define CMD_CY          (64)
-#define EDIT_CY	        (20)
-#define LINE_CY         (16)
-#define EDIT_CX         (MAIN_CLIENT_CX - (UI_PAD * 2))
-#define MAIN_CMD_Y      (UI_PAD)
-#define MAIN_CMD_CAST_X (UI_PAD)
-#define MAIN_CMD_BACK_X (UI_PAD + (CMD_CX + UI_PAD) * 1)
-#define MAIN_CMD_SAVE_X (UI_PAD + (CMD_CX + UI_PAD) * 2)
-#define MAIN_CMD_OPEN_X (UI_PAD + (CMD_CX + UI_PAD) * 3)
-#define EDIT_Y          (UI_PAD +  CMD_CY + UI_PAD)
-#define HEX_X           (UI_PAD)
-#define HEX_Y           (EDIT_Y + EDIT_CY + UI_PAD)
-#define HEX_CX          (MAIN_CLIENT_CX / 2) - (INT)(1.5 * UI_PAD)
-#define HEX_CY          (HEX_CX)
-#define CHG_X           (UI_PAD + HEX_CX + UI_PAD)
-#define CHG_Y           (HEX_Y)
-#define CHG_CX          (HEX_CX)
-#define CHG_CY          (HEX_CY)
-#define HEX_NAME_X      (HEX_X + UI_PAD)
-#define HEX_NAME_Y      (HEX_Y + UI_PAD)
-#define CHG_NAME_X      (CHG_X + UI_PAD)
-#define CHG_NAME_Y      (HEX_NAME_Y)
-#define NAME_CX         (HEX_CX - (2 * UI_PAD))
-#define HEX_LINE_X      (HEX_NAME_X)
-#define CHG_LINE_X      (CHG_NAME_X)
-#define LINE_6_Y        (HEX_NAME_Y + (UI_PAD * 4))
-#define LINE_5_Y        (LINE_6_Y + (UI_PAD * 3))
-#define LINE_4_Y        (LINE_5_Y + (UI_PAD * 3))
-#define LINE_3_Y        (LINE_4_Y + (UI_PAD * 3))
-#define LINE_2_Y        (LINE_3_Y + (UI_PAD * 3))
-#define LINE_1_Y        (LINE_2_Y + (UI_PAD * 3))
-#define LINE_CX         (HEX_CX - (3 * UI_PAD))
-#define TXT_NAME_X      (UI_PAD)
-#define TXT_NAME_Y      (HEX_Y + HEX_CY + UI_PAD)
-#define TXT_NAME_CX     (NAME_CX)
-#define TXT_NAME_CY     (LINE_CY)
-#define TEXT_X          (UI_PAD)
-#define TEXT_Y          (TXT_NAME_Y + TXT_NAME_CY + UI_PAD)
-#define TEXT_CX         (EDIT_CX)
-#define TEXT_CY         (MAIN_CLIENT_CY - TEXT_Y - UI_PAD)
+#define MAIN_CTRL(id)       (GetDlgItem(g.hwnd_main, (id)))
+#define OPEN_CTRL(id)       (GetDlgItem(g.hwnd_open, (id)))
+#define SELECTED_ITEM(hwnd) (ListView_GetNextItem((hwnd), -1, LVNI_SELECTED))
+#define RECT_CX(rc)         ((rc).right  - (rc).left)
+#define RECT_CY(rc)         ((rc).bottom - (rc).top)
+#define MAIN_CLIENT_CX	    (600)
+#define MAIN_CLIENT_CY      (918)
+#define UI_PAD              (12)
+#define CMD_CX              (64)
+#define CMD_CY              (64)
+#define EDIT_CY	            (20)
+#define LINE_CY             (16)
+#define EDIT_CX             (MAIN_CLIENT_CX - (UI_PAD * 2))
+#define MAIN_CMD_Y          (UI_PAD)
+#define MAIN_CMD_CAST_X     (UI_PAD)
+#define MAIN_CMD_BACK_X     (UI_PAD + (CMD_CX + UI_PAD) * 1)
+#define MAIN_CMD_SAVE_X     (UI_PAD + (CMD_CX + UI_PAD) * 2)
+#define MAIN_CMD_OPEN_X     (UI_PAD + (CMD_CX + UI_PAD) * 3)
+#define EDIT_Y              (UI_PAD +  CMD_CY + UI_PAD)
+#define HEX_X               (UI_PAD)
+#define HEX_Y               (EDIT_Y + EDIT_CY + UI_PAD)
+#define HEX_CX              (MAIN_CLIENT_CX / 2) - (INT)(1.5 * UI_PAD)
+#define HEX_CY              (HEX_CX)
+#define CHG_X               (UI_PAD + HEX_CX + UI_PAD)
+#define CHG_Y               (HEX_Y)
+#define CHG_CX              (HEX_CX)
+#define CHG_CY              (HEX_CY)
+#define HEX_NAME_X          (HEX_X + UI_PAD)
+#define HEX_NAME_Y          (HEX_Y + UI_PAD)
+#define CHG_NAME_X          (CHG_X + UI_PAD)
+#define CHG_NAME_Y          (HEX_NAME_Y)
+#define NAME_CX             (HEX_CX - (2 * UI_PAD))
+#define HEX_LINE_X          (HEX_NAME_X)
+#define CHG_LINE_X          (CHG_NAME_X)
+#define LINE_6_Y            (HEX_NAME_Y + (UI_PAD * 4))
+#define LINE_5_Y            (LINE_6_Y + (UI_PAD * 3))
+#define LINE_4_Y            (LINE_5_Y + (UI_PAD * 3))
+#define LINE_3_Y            (LINE_4_Y + (UI_PAD * 3))
+#define LINE_2_Y            (LINE_3_Y + (UI_PAD * 3))
+#define LINE_1_Y            (LINE_2_Y + (UI_PAD * 3))
+#define LINE_CX             (HEX_CX - (3 * UI_PAD))
+#define TXT_NAME_X          (UI_PAD)
+#define TXT_NAME_Y          (HEX_Y + HEX_CY + UI_PAD)
+#define TXT_NAME_CX         (NAME_CX)
+#define TXT_NAME_CY         (LINE_CY)
+#define TEXT_X              (UI_PAD)
+#define TEXT_Y              (TXT_NAME_Y + TXT_NAME_CY + UI_PAD)
+#define TEXT_CX             (EDIT_CX)
+#define TEXT_CY             (MAIN_CLIENT_CY - TEXT_Y - UI_PAD)
 
 enum e_ctrl_id {
     IDC_CMD_CAST = 1,
@@ -164,6 +168,7 @@ enum e_button_state {
 const BYTE bin_to_wen[64] = { 2, 24, 7, 19, 15, 36, 46, 11, 16, 51, 40, 54, 62, 55, 32, 34, 8, 3, 29, 60, 39, 63, 48, 5, 45, 17, 47, 58, 31, 49, 28, 43, 23, 27, 4, 41, 52, 22, 18, 26, 35, 21, 64, 38, 56, 30, 50, 14, 20, 42, 59, 61, 53, 37, 57, 9, 12, 25, 6, 10, 33, 13, 44, 1 };
 
 typedef struct {
+    SYSTEMTIME local_time;             // Timestamp of the reading
     HINSTANCE  hInstance;              // Application instance handle
     HWND       hwnd_main;              // Main window handle
     HWND       hwnd_open;              // Open window handle
@@ -174,33 +179,32 @@ typedef struct {
     RECT       rect_hexagram;          // Hexagram rectangle
     RECT       rect_changing;          // Changed hexagram rectangle
     RECT       rect_hex_name;          // Hexagram name rectangle
-    BOOL       close;                  // Set to true when the message loop should bail
-    DWORD      seed;                   // Random seed for casting
-    DWORD      hex_bits;               // Binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
-    DWORD      chg_bits;               // Binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
-    UINT       hex_num;                // The number of the main hexagram (1-64)
-    UINT       chg_num;                // The number of the changed hexagram (1-64)
-    UINT       opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
-    UINT       opt_prev;               // The previously selected option
-    UINT       save_count;             // Count of saved readings
     PWCHAR     lines[6];               // Text of the lines of the main hexagram
     PWCHAR     hex_text;               // Text of the main hexagram
     PWCHAR     chg_text;               // Text of the changed hexagram
+    DWORD      seed;                   // Random seed for casting
+    UINT       save_count;             // Count of saved readings
     WCHAR      query[260];             // User's input, either a hexagram number or a query
     WCHAR      buf_hex[6 * 1024];      // Buffer for the hexagram text
     WCHAR      buf_chg[6 * 1024];      // Buffer for the changed hexagram text
     WCHAR      ini_file[MAX_PATH];     // Path to the 'I Ching.ini' file for the text and saved readings
-    SYSTEMTIME st;                     // Timestamp of the reading
     BYTE       btn_enabled[CMD_COUNT]; // Button enabled/disabled
     BYTE       btn_state[CMD_COUNT];   // State of each button (normal, hover or pressed)
     BYTE       wen_to_bin[64];         // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
+    BYTE       hex_bits;               // Binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
+    BYTE       chg_bits;               // Binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
+    BYTE       hex_num;                // The number of the main hexagram (1-64)
+    BYTE       chg_num;                // The number of the changed hexagram (1-64)
+    BYTE       opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
+    BYTE       opt_prev;               // The previously selected option
+    BYTE       close;                  // Set to true when the message loop should bail
 } Global_t;
 
 Global_t g;
 
 // RDSEED.asm declarations
-EXTERN_C BOOL    rdseed_support(VOID);
-EXTERN_C DWORD   get_seed      (VOID);
+EXTERN_C BYTE    rdseed_support (VOID);
+EXTERN_C DWORD   get_seed       (VOID);
 
 // forward declarations
 VOID             calc_hex_all   (VOID);
@@ -211,10 +215,8 @@ VOID             cmd_open       (VOID);
 VOID             cmd_save       (VOID);
 VOID             create_open    (HWND hwnd_open);
 VOID             create_main    (HWND hwnd);
-BOOL             file_exists    (PCWSTR path);
+BYTE             file_exists    (PCWSTR path);
 VOID             get_hex_text   (VOID);
-HWND             hwnd_main_ctrl (UINT ctrl_id);
-HWND             hwnd_open_ctrl (UINT ctrl_id);
 VOID             open_delete    (VOID);
 VOID             open_selected  (VOID);
 VOID             paint_main     (HWND hwnd);
@@ -277,14 +279,12 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
 
         if (g.hwnd_main) {
             BOOL dark = TRUE;
+            MSG  msg;
 
             DwmSetWindowAttribute(g.hwnd_main, DWMWINDOWATTRIBUTE::DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
             ShowWindow(g.hwnd_main, SW_NORMAL);
-            SetFocus( hwnd_main_ctrl(IDC_QUERY) );
 
             while (!g.close) {
-                MSG msg;
-
                 if (GetMessageW(&msg, g.hwnd_main, 0, 0)) {
                     TranslateMessage(&msg);
                     DispatchMessageW(&msg);
@@ -305,7 +305,7 @@ LRESULT CALLBACK wndproc_main(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
         break;
     
     case WM_CLOSE:
-        g.close = TRUE;
+        g.close = true;
         break;
 
     case WM_PAINT:
@@ -369,6 +369,7 @@ VOID create_main(HWND hwnd_main) {
     hwnd = CreateWindowW(L"EDIT",   0, WS_CHILD|WS_BORDER|WS_VISIBLE|ES_NOHIDESEL, UI_PAD, EDIT_Y, EDIT_CX, EDIT_CY,  hwnd_main,  (HMENU)IDC_QUERY, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_text, 0);
     SendMessageW(hwnd, EM_SETCUEBANNER, TRUE, (LPARAM)L"Enter a query or hexagram number from 1 to 64");
+    SetFocus(hwnd);
     SetWindowSubclass(hwnd, &subproc_edit, IDC_QUERY, 0);
 
     hwnd = CreateWindowW(L"BUTTON", 0, WS_CHILD|WS_VISIBLE|BS_OWNERDRAW, HEX_NAME_X, HEX_NAME_Y, NAME_CX,  LINE_CY, hwnd_main, (HMENU)IDC_OPT_HEXAGRAM,  0, 0);
@@ -457,7 +458,7 @@ VOID paint_main(HWND hwnd) {
 // Handles the command buttons (cast, back, save and load).
 //=================================================================================================================================================================================
 LRESULT CALLBACK subproc_cmd(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
-    BOOL enabled = g.btn_enabled[dwRefData];
+    BYTE enabled = g.btn_enabled[dwRefData];
 
     if (!enabled && message != WM_PAINT)
         return DefSubclassProc(hwnd, message, wParam, lParam);
@@ -591,7 +592,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
     if (message == WM_ERASEBKGND)   
         return 0;
 
-    BOOL button;
+    BYTE button;
 
     if (uIdSubclass == IDC_OPT_HEXAGRAM)
         button = TRUE;
@@ -605,7 +606,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         return DefSubclassProc(hwnd, message, wParam, lParam);
 
     UINT line = (dwRefData >>  8) & 0x07; // line number
-    BOOL main = (dwRefData >> 16) & 0xFF; // main hexagram else change hexagram
+    BYTE main = (dwRefData >> 16) & 0xFF; // main hexagram else change hexagram
 
     switch (message) {
     case WM_LBUTTONDOWN:
@@ -634,10 +635,10 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
                 break;
             }
 
-            SetWindowTextW( hwnd_main_ctrl(IDC_TEXT), p);
+            SetWindowTextW(MAIN_CTRL(IDC_TEXT), p);
 
             InvalidateRect(hwnd, 0, FALSE);
-            InvalidateRect(hwnd_main_ctrl(g.opt_prev), 0, FALSE);
+            InvalidateRect(MAIN_CTRL(g.opt_prev), 0, FALSE);
 
             if (g.opt_prev == IDC_OPT_CHANGING || g.opt_num == IDC_OPT_CHANGING)   
                 InvalidateRect(g.hwnd_main, &g.rect_hex_name, TRUE);
@@ -687,8 +688,8 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             }
 
             if (line--) {
-                BOOL hex_bit = g.hex_bits & 1 << line;
-                BOOL chg_bit = g.chg_bits & 1 << line;
+                BYTE hex_bit = g.hex_bits & 1 << line;
+                BYTE chg_bit = g.chg_bits & 1 << line;
                 
                 ico_index = 0;
 
@@ -723,7 +724,7 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 VOID cmd_cast(VOID) {
     g.seed = get_seed();
 
-    GetWindowTextW( hwnd_main_ctrl(IDC_QUERY), g.query, _countof(g.query));
+    GetWindowTextW(MAIN_CTRL(IDC_QUERY), g.query, _countof(g.query));
  
     g.hex_num = _wtoi(g.query);
 
@@ -733,10 +734,10 @@ VOID cmd_cast(VOID) {
         g.chg_bits = 0b111111;
         g.chg_num  = bin_to_wen[g.hex_bits ^ g.chg_bits];
     } else {
-        GetLocalTime(&g.st);
+        GetLocalTime(&g.local_time);
         calc_hex_all();
         g.btn_enabled[CMD_SAVE] = 1;
-        InvalidateRect( hwnd_main_ctrl(IDC_CMD_SAVE), 0, FALSE);
+        InvalidateRect(MAIN_CTRL(IDC_CMD_SAVE), 0, FALSE);
     }
 
     g.btn_enabled[CMD_CAST] = 0;
@@ -744,10 +745,10 @@ VOID cmd_cast(VOID) {
 
     get_hex_text();
 
-    SetWindowTextW( hwnd_main_ctrl(IDC_TEXT),  g.hex_text);
-    SendMessageW  ( hwnd_main_ctrl(IDC_QUERY), EM_SETREADONLY, TRUE, 0);
-    InvalidateRect( hwnd_main_ctrl(IDC_CMD_CAST), 0, FALSE);
-    InvalidateRect( hwnd_main_ctrl(IDC_CMD_BACK), 0, FALSE);
+    SetWindowTextW(MAIN_CTRL(IDC_TEXT),  g.hex_text);
+    SendMessageW  (MAIN_CTRL(IDC_QUERY), EM_SETREADONLY, TRUE, 0);
+    InvalidateRect(MAIN_CTRL(IDC_CMD_CAST), 0, FALSE);
+    InvalidateRect(MAIN_CTRL(IDC_CMD_BACK), 0, FALSE);
     InvalidateRect(g.hwnd_main, &g.rect_hex_name, FALSE);
     SetFocus(g.hwnd_main);
 }
@@ -766,16 +767,16 @@ VOID cmd_back(VOID) {
     g.btn_enabled[CMD_BACK] = 0;
     g.btn_enabled[CMD_SAVE] = 0;
 
-    HWND hwnd = hwnd_main_ctrl(IDC_QUERY);
+    HWND hwnd =MAIN_CTRL(IDC_QUERY);
     SetWindowTextW(hwnd, 0);
     SendMessageW(hwnd, EM_SETREADONLY, FALSE, 0);
     SetFocus(hwnd);
 
-    SetWindowTextW( hwnd_main_ctrl(IDC_TEXT), 0);
-    UpdateWindow  ( hwnd_main_ctrl(IDC_TEXT));
-    InvalidateRect( hwnd_main_ctrl(IDC_CMD_CAST), 0, FALSE);
-    InvalidateRect( hwnd_main_ctrl(IDC_CMD_BACK), 0, FALSE);
-    InvalidateRect( hwnd_main_ctrl(IDC_CMD_SAVE), 0, FALSE);
+    SetWindowTextW(MAIN_CTRL(IDC_TEXT), 0);
+    UpdateWindow  (MAIN_CTRL(IDC_TEXT));
+    InvalidateRect(MAIN_CTRL(IDC_CMD_CAST), 0, FALSE);
+    InvalidateRect(MAIN_CTRL(IDC_CMD_BACK), 0, FALSE);
+    InvalidateRect(MAIN_CTRL(IDC_CMD_SAVE), 0, FALSE);
     InvalidateRect(g.hwnd_main, &g.rect_hexagram, TRUE);
     InvalidateRect(g.hwnd_main, &g.rect_changing, TRUE);
     InvalidateRect(g.hwnd_main, &g.rect_hex_name, TRUE);
@@ -788,7 +789,7 @@ VOID cmd_save(VOID) {
     WCHAR buf[32 + _countof(g.query)];
     INT   count;
 
-    swprintf_s(buf, _countof(buf), L"%d-%02d-%02d %02d:%02d:%02d 0x%05X %s", g.st.wYear, g.st.wMonth, g.st.wDay, g.st.wHour, g.st.wMinute, g.st.wSecond, g.seed, g.query);
+    swprintf_s(buf, _countof(buf), L"%d-%02d-%02d %02d:%02d:%02d 0x%05X %s", g.local_time.wYear, g.local_time.wMonth, g.local_time.wDay, g.local_time.wHour, g.local_time.wMinute, g.local_time.wSecond, g.seed, g.query);
 
     count = GetPrivateProfileIntW(L"Saved", L"Count", 0, g.ini_file);
     count++;
@@ -828,7 +829,7 @@ VOID cmd_open(VOID) {
             }
         }
 
-        g.close = FALSE;
+        g.close = false;
 
         DestroyWindow(g.hwnd_open);
         EnableWindow(g.hwnd_main, TRUE);
@@ -848,7 +849,7 @@ LRESULT CALLBACK wndproc_open(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
         break;
 
     case WM_CLOSE:
-        g.close = TRUE;
+        g.close = true;
         break;
 
     case WM_COMMAND:
@@ -862,7 +863,7 @@ LRESULT CALLBACK wndproc_open(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
             break;
 
         case IDC_OPEN_CANCEL: 
-            g.close = TRUE;  
+            g.close = true;  
             break;
         } break;
 
@@ -870,10 +871,10 @@ LRESULT CALLBACK wndproc_open(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
             auto lpHdr = (LPNMHDR)lParam;
 
             if (lpHdr->code == NM_CLICK) {
-                BOOL enabled = LIST_ITEM( hwnd_open_ctrl(IDC_OPEN_LIST)) != -1;
+                BOOL enabled = SELECTED_ITEM(OPEN_CTRL(IDC_OPEN_LIST)) != -1;
 
-                EnableWindow(hwnd_open_ctrl(IDC_OPEN_DELETE), enabled);
-                EnableWindow(hwnd_open_ctrl(IDC_OPEN_OPEN),   enabled);
+                EnableWindow(OPEN_CTRL(IDC_OPEN_DELETE), enabled);
+                EnableWindow(OPEN_CTRL(IDC_OPEN_OPEN),   enabled);
             } else
             if (lpHdr->code == NM_DBLCLK)
                 open_selected();
@@ -1017,10 +1018,10 @@ VOID create_open(HWND hwnd_open) {
 // Open the selected reading from the list view in the load window.
 //=======================================================================================================================================================================================
 VOID open_selected(VOID) {
-    HWND   hwnd = hwnd_open_ctrl(IDC_OPEN_LIST);
+    HWND   hwnd =OPEN_CTRL(IDC_OPEN_LIST);
     LVITEM lvi;
 
-    lvi.iItem    = LIST_ITEM(hwnd);
+    lvi.iItem    = SELECTED_ITEM(hwnd);
     lvi.mask     = LVIF_PARAM;
     lvi.iSubItem = 0;
 
@@ -1040,18 +1041,18 @@ VOID open_selected(VOID) {
             g.btn_enabled[CMD_BACK] = 1;
             g.btn_enabled[CMD_SAVE] = 0;
 
-            HWND hwnd_query = hwnd_main_ctrl(IDC_QUERY); 
+            HWND hwnd_query =MAIN_CTRL(IDC_QUERY); 
             SetWindowTextW(hwnd_query, g.query);
             SendMessageW  (hwnd_query, EM_SETREADONLY, TRUE, 0);
-            SetWindowTextW( hwnd_main_ctrl(IDC_TEXT), g.hex_text);
-            InvalidateRect( hwnd_main_ctrl(IDC_CMD_CAST), 0, FALSE);
-            InvalidateRect( hwnd_main_ctrl(IDC_CMD_BACK), 0, FALSE);
-            InvalidateRect( hwnd_main_ctrl(IDC_CMD_SAVE), 0, FALSE);
+            SetWindowTextW(MAIN_CTRL(IDC_TEXT), g.hex_text);
+            InvalidateRect(MAIN_CTRL(IDC_CMD_CAST), 0, FALSE);
+            InvalidateRect(MAIN_CTRL(IDC_CMD_BACK), 0, FALSE);
+            InvalidateRect(MAIN_CTRL(IDC_CMD_SAVE), 0, FALSE);
             InvalidateRect(g.hwnd_main, &g.rect_hexagram, FALSE);
             InvalidateRect(g.hwnd_main, &g.rect_changing, FALSE);
             InvalidateRect(g.hwnd_main, &g.rect_hex_name, FALSE);
 
-            g.close = TRUE; 
+            g.close = true; 
         }
     }
 }
@@ -1061,9 +1062,9 @@ VOID open_selected(VOID) {
 VOID open_delete(VOID) {
     WCHAR  key[8];
     LVITEM lvi;
-    HWND   hwnd  = hwnd_open_ctrl(IDC_OPEN_LIST);
+    HWND   hwnd  =OPEN_CTRL(IDC_OPEN_LIST);
 
-    ListView_DeleteItem(hwnd, LIST_ITEM(hwnd));
+    ListView_DeleteItem(hwnd, SELECTED_ITEM(hwnd));
     g.save_count--;
     
     for (INT i = g.save_count - 1, j = 1; i >= 0; i--, j++) {
@@ -1110,8 +1111,8 @@ VOID open_delete(VOID) {
     swprintf_s(key, _countof(key), L"%d", g.save_count);
     WritePrivateProfileStringW(L"Saved", L"Count", key, g.ini_file);
 
-    EnableWindow( hwnd_open_ctrl(IDC_OPEN_DELETE), FALSE);
-    EnableWindow( hwnd_open_ctrl(IDC_OPEN_OPEN),   FALSE);
+    EnableWindow(OPEN_CTRL(IDC_OPEN_DELETE), FALSE);
+    EnableWindow(OPEN_CTRL(IDC_OPEN_OPEN),   FALSE);
 }
 #pragma endregion
 
@@ -1221,21 +1222,9 @@ VOID get_hex_text(VOID) {
     }
 }
 
-// Return the child control handle of the main window
-//======================================================================================================================================================================================
-HWND hwnd_main_ctrl(UINT ctrl_id) {
-    return GetDlgItem(g.hwnd_main, ctrl_id);
-}
-
-// Return the child control handle of the open window
-//======================================================================================================================================================================================
-HWND hwnd_open_ctrl(UINT ctrl_id) {
-    return GetDlgItem(g.hwnd_open, ctrl_id);
-}
-
 // Return wether the file exists
 //======================================================================================================================================================================================
-BOOL file_exists(PCWSTR path) {
+BYTE file_exists(PCWSTR path) {
     DWORD dwAttrib = GetFileAttributesW(path);
 
     return (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
