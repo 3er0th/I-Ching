@@ -25,7 +25,7 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 // 20260312 1.0.0.2 - Optimised radio button WM_PAINT
 // 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed.
 // 20260325 1.0.0.4 - Added the ability to delete saved readings
-// 20260403 1.0.0.5 - DPI awreness changes
+// 20260403 1.0.0.5 - DPI awareness changes
 //
  
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
