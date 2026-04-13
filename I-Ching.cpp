@@ -23,9 +23,10 @@ In particular, see Figure 14.1 and the associated text. Binary from thousands of
 // 
 // 20260311 1.0.0.1 - Initial release
 // 20260312 1.0.0.2 - Optimised radio button WM_PAINT
-// 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed.
+// 20260315 1.0.0.3 - Changed some nameing. Some small code optimisations. Switched compiler optimisation from size to speed
 // 20260325 1.0.0.4 - Added the ability to delete saved readings
 // 20260403 1.0.0.5 - DPI awareness changes
+// 20260413 1.0.0.6 - Optimisation pass
 //
  
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -179,11 +180,18 @@ typedef struct {
     RECT       rect_hexagram;          // Hexagram rectangle
     RECT       rect_changing;          // Changed hexagram rectangle
     RECT       rect_hex_name;          // Hexagram name rectangle
+    DWORD      seed;                   // Random seed for casting
+    DWORD      bits_hex;               // Binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
+    DWORD      bits_chg;               // Binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
+    UINT       hex_num;                // The number of the main hexagram (1-64)
+    UINT       chg_num;                // The number of the changed hexagram (1-64)
+    UINT       opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
+    UINT       opt_prev;               // The previously selected option
+    UINT       save_count;             // Count of saved readings
+    BOOL       close;                  // Set to true when the message loop should bail
     PWCHAR     lines[6];               // Text of the lines of the main hexagram
     PWCHAR     hex_text;               // Text of the main hexagram
     PWCHAR     chg_text;               // Text of the changed hexagram
-    DWORD      seed;                   // Random seed for casting
-    UINT       save_count;             // Count of saved readings
     WCHAR      query[260];             // User's input, either a hexagram number or a query
     WCHAR      buf_hex[6 * 1024];      // Buffer for the hexagram text
     WCHAR      buf_chg[6 * 1024];      // Buffer for the changed hexagram text
@@ -191,13 +199,6 @@ typedef struct {
     BYTE       btn_enabled[CMD_COUNT]; // Button enabled/disabled
     BYTE       btn_state[CMD_COUNT];   // State of each button (normal, hover or pressed)
     BYTE       wen_to_bin[64];         // Mapping from wen (the traditional numbering of hexagrams) to bin (the binary representation used in the program)
-    BYTE       hex_bits;               // Binary representation of the main hexagram, where each bit represents a line (0 for yin, 1 for yang)
-    BYTE       chg_bits;               // Binary representation of the changing lines, where each bit represents a line that is changing (1 for changing, 0 for static)
-    BYTE       hex_num;                // The number of the main hexagram (1-64)
-    BYTE       chg_num;                // The number of the changed hexagram (1-64)
-    BYTE       opt_num;                // The currently selected option (hexagram, changed hexagram or changing lines)
-    BYTE       opt_prev;               // The previously selected option
-    BYTE       close;                  // Set to true when the message loop should bail
 } Global_t;
 
 Global_t g;
@@ -208,7 +209,8 @@ EXTERN_C DWORD   get_seed       (VOID);
 
 // forward declarations
 VOID             calc_hex_all   (VOID);
-VOID             calc_hex_num   (DWORD seed, UINT& hex, UINT& chg);
+VOID             calc_hex_num   (DWORD seed, DWORD& hex, DWORD& chg);
+VOID             calc_hex_sub   (DWORD seed, DWORD& bits_hex, DWORD& bits_chg);
 VOID             cmd_back       (VOID);
 VOID             cmd_cast       (VOID);
 VOID             cmd_open       (VOID);
@@ -254,7 +256,7 @@ EXTERN_C __declspec(noreturn) void __stdcall WinMainCRTStartup(void) {
     for (UINT i = 0; i < 64; i++)
         g.wen_to_bin[ bin_to_wen[i] - 1 ] = i;
 
-    // Load the icon graphics
+    // Load the graphics
     for (UINT ico_idx = 0, res_id = IDI_CMD_CAST; ico_idx <= ICON_NUMBER_9; ico_idx++, res_id++)
         g.icon[ico_idx] = LoadIconW(g.hInstance, MAKEINTRESOURCEW(res_id));
 
@@ -592,15 +594,15 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
     if (message == WM_ERASEBKGND)   
         return 0;
 
-    BYTE button;
+    BOOL button;
 
     if (uIdSubclass == IDC_OPT_HEXAGRAM)
         button = TRUE;
     else
     if (uIdSubclass == IDC_OPT_CHANGING)
-        button = g.chg_bits;
+        button = g.bits_chg;
     else
-        button = dwRefData & g.chg_bits;
+        button = dwRefData & g.bits_chg;
 
     if (!button && message != WM_PAINT)
         return DefSubclassProc(hwnd, message, wParam, lParam);
@@ -688,15 +690,15 @@ LRESULT CALLBACK subproc_opt(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             }
 
             if (line--) {
-                BYTE hex_bit = g.hex_bits & 1 << line;
-                BYTE chg_bit = g.chg_bits & 1 << line;
+                BYTE hex_bit = g.bits_hex & 1 << line;
+                BYTE chg_bit = g.bits_chg & 1 << line;
                 
                 ico_index = 0;
 
                 if (main)
                     ico_index = chg_bit ? (hex_bit ? ICON_LINE_9 : ICON_LINE_6) : (hex_bit ? ICON_LINE_7 : ICON_LINE_8);
                 else
-                if (g.chg_bits)
+                if (g.bits_chg)
                     ico_index = chg_bit ? (hex_bit ? ICON_LINE_8 : ICON_LINE_7) : (hex_bit ? ICON_LINE_7 : ICON_LINE_8);
 
                 if (ico_index) {
@@ -730,9 +732,9 @@ VOID cmd_cast(VOID) {
 
     if (g.hex_num >= 1 && g.hex_num <= 64 && wcslen(g.query) < 3) {
         g.seed     = 0;
-        g.hex_bits = g.wen_to_bin[g.hex_num - 1];
-        g.chg_bits = 0b111111;
-        g.chg_num  = bin_to_wen[g.hex_bits ^ g.chg_bits];
+        g.bits_hex = g.wen_to_bin[g.hex_num - 1];
+        g.bits_chg = 0b111111;
+        g.chg_num  = bin_to_wen[g.bits_hex ^ g.bits_chg];
     } else {
         GetLocalTime(&g.local_time);
         calc_hex_all();
@@ -756,9 +758,9 @@ VOID cmd_cast(VOID) {
 // Resets the application state to allow for a new reading.
 //=========================================================================================================================================================
 VOID cmd_back(VOID) {
-    g.hex_bits = 0;
+    g.bits_hex = 0;
     g.hex_num  = 0;
-    g.chg_bits = 0;
+    g.bits_chg = 0;
     g.chg_num  = 0;
     g.opt_prev = 0;
     g.opt_num  = IDC_OPT_HEXAGRAM;
@@ -915,7 +917,7 @@ VOID create_open(HWND hwnd_open) {
 
     hwnd = CreateWindowW(L"SysListView32", 0,  WS_VISIBLE|WS_CHILD|WS_BORDER|LVS_REPORT|LVS_SINGLESEL|LVS_SHOWSELALWAYS, 0, 0, RECT_CX(rcClient), rcClient.bottom - UI_PAD - 24 - UI_PAD, hwnd_open, (HMENU)IDC_OPEN_LIST, 0, 0);
     SendMessageW(hwnd, WM_SETFONT, (WPARAM)g.font_text, 0);
-    ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES|LVS_EX_LABELTIP);
+    ListView_SetExtendedListViewStyle(hwnd, LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES);
 
     lvCol.mask     = LVCF_FMT|LVCF_WIDTH|LVCF_TEXT|LVCF_SUBITEM;
     lvCol.pszText  = (PWCHAR)L"Date";
@@ -953,8 +955,8 @@ VOID create_open(HWND hwnd_open) {
 
         if (GetPrivateProfileStringW(L"Saved", key, 0, buf, _countof(buf), g.ini_file)) {
             DWORD    seed;
-            UINT     hexagram;
-            UINT     changing;
+            DWORD    hexagram;
+            DWORD    changing;
             WCHAR    wcsHex[4];
             PWSTR    pTime;
             PWSTR    p      = buf;
@@ -1121,58 +1123,47 @@ VOID open_delete(VOID) {
 // Calculate the main and changing hexagram numbers, as well as the bitmasks for the hexagram lines and changing lines.
 //=======================================================================================================================================================================================
 VOID calc_hex_all(VOID) {
-    DWORD seed     = g.seed;
-    BYTE  hex_bits = 0;
-    BYTE  chg_bits = 0;
+    calc_hex_sub(g.seed, g.bits_hex, g.bits_chg);
 
-    for (UINT i = 0, bit = 1; i < 6; i++, bit <<= 1) {
-        switch (seed & 0b111) {
-        case 3:
-            chg_bits |= bit;
-            break;
-
-        case 7:
-            chg_bits |= bit;
-        case 4: case 5: case 6:
-            hex_bits |= bit;
-            break;
-        }
-
-        seed >>= 3;
-    }
-
-    g.hex_bits = hex_bits;
-    g.chg_bits = chg_bits;
-    g.hex_num  = bin_to_wen[hex_bits];
-    g.chg_num  = chg_bits ? bin_to_wen[hex_bits ^ chg_bits] : 0;
+    g.hex_num  = bin_to_wen[g.bits_hex];
+    g.chg_num  = g.bits_chg ? bin_to_wen[g.bits_hex ^ g.bits_chg] : 0;
 }
 
-// A limited version of the above function that only calculates the main and change hexagram numbers from a given seed, without modifying any global state.
+// A limited version of the above function that only calculates the main and change hexagram numbers from a given seed without modifying any global state.
 //=======================================================================================================================================================================================
-VOID calc_hex_num(DWORD seed, UINT& hex, UINT& chg) {
-    DWORD hex_bits = 0;
-    DWORD chg_bits = 0;
+VOID calc_hex_num(DWORD seed, DWORD& hex, DWORD& chg) {
+    DWORD bits_hex;
+    DWORD bits_chg;
+
+    calc_hex_sub(seed, bits_hex, bits_chg);
+
+    hex = bin_to_wen[bits_hex];
+    chg = bits_chg ? bin_to_wen[bits_hex ^ bits_chg] : 0;
+}
+
+// Process the seed to determine the hexagram and change bits
+//=======================================================================================================================================================================================
+VOID calc_hex_sub(DWORD seed, DWORD& bits_hex, DWORD& bits_chg) {
+    bits_hex = 0;
+    bits_chg = 0;
 
     for (UINT i = 0, bit = 1; i < 6; i++, bit <<= 1) {
         switch (seed & 0b111) {
         case 3:
-            chg_bits |= bit;
+            bits_chg |= bit;
             break;
 
         case 7:
-            chg_bits |= bit;
+            bits_chg |= bit;
         case 4: 
         case 5: 
         case 6:
-            hex_bits |= bit;
+            bits_hex |= bit;
             break;
         }
 
         seed >>= 3;
     }
-
-    hex = bin_to_wen[hex_bits];
-    chg = chg_bits ? bin_to_wen[hex_bits ^ chg_bits] : 0;
 }
 
 // Retrieve the text for the main and changed hexagram from the INI file, store pointers to the main hexagram's moving lines. 
@@ -1199,7 +1190,7 @@ VOID get_hex_text(VOID) {
             p[1] = L'\r';
         }
 
-        if (g.chg_bits) {
+        if (g.bits_chg) {
             swprintf_s(section, _countof(section), L"Hexagram_%d", g.chg_num);
 
             if (GetPrivateProfileSectionW(section, g.buf_chg, _countof(g.buf_chg), g.ini_file)) {
